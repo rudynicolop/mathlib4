@@ -2526,6 +2526,7 @@ import Mathlib.Computability.MyhillNerode
 import Mathlib.Computability.NFA
 import Mathlib.Computability.Partrec
 import Mathlib.Computability.PartrecCode
+import Mathlib.Computability.Path
 import Mathlib.Computability.PostTuringMachine
 import Mathlib.Computability.Primrec
 import Mathlib.Computability.Reduce
