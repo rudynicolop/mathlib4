@@ -3105,6 +3105,7 @@ import Mathlib.Computability.TMToPartrec
 import Mathlib.Computability.Tape
 import Mathlib.Computability.TuringDegree
 import Mathlib.Computability.TuringMachine
+import Mathlib.Computability.WeightedLanguage
 import Mathlib.Condensed.AB
 import Mathlib.Condensed.Basic
 import Mathlib.Condensed.CartesianClosed
