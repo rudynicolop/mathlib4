@@ -43,4 +43,9 @@ instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
 def PathInWDFA {s₁ s₃ : σ} : WeightedPath α κ s₁ s₃ → Prop :=
   WeightedPath.All (fun q₁ a w q₂ ↦ M.step q₁ a = (q₂, w))
 
+def AcceptingPathInWDFA {s₁ s₂ : σ} (π : WeightedPath α κ s₁ s₂) (w : κ) : Prop :=
+  s₁ = M.start.1 ∧
+  M.PathInWDFA π ∧
+  w = M.start.2 * π.innerWeight * M.final s₂
+
 end WDFA
