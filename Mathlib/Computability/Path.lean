@@ -183,4 +183,42 @@ lemma foldr_innerWeight [W : Semiring κ] {s₁ s₃ : σ} (π : Path α κ s₁
     simp [ih]
     rfl
 
+section All
+
+variable (P : σ → α → κ → σ → Prop)
+
+inductive All : ∀ {s₁ s₂ : σ}, Path α κ s₁ s₂ → Prop where
+  | Last s : All (last s)
+  | Arc s₁ s₂ s₃ a w (π : Path α κ s₂ s₃) :
+    P s₁ a w s₂ → All π → All (arc _ _ _ a w π)
+
+end All
+
+section AllLemmas
+
+variable (P : σ → α → κ → σ → Prop)
+
+lemma All_arc {s₁ s₂ s₃ : σ} (a : α) (w : κ) (π : Path α κ s₂ s₃) :
+  All P (arc s₁ s₂ s₃ a w π) ↔ P s₁ a w s₂ ∧ All P π := by
+  constructor
+  · intro h
+    cases h with
+    | Arc _ _ _ _ _ _ hp hπ =>
+      admit
+  · rintro ⟨hp, hπ⟩
+    constructor <;> assumption
+
+lemma All_concat {s₁ s₂ s₃ : σ}
+  (π₁ : Path α κ s₁ s₂) (π₂ : Path α κ s₂ s₃) :
+  All P (π₁.concat π₂) ↔ All P π₁ ∧ All P π₂ := by
+  revert s₃ π₂
+  induction π₁ <;> intros s₃ π₂ <;> simp
+  case last _ =>
+    intros _
+    apply All.Last
+  case arc _ s _ a w π₁ ih =>
+    admit
+
+end AllLemmas
+
 end Path

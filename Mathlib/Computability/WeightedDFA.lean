@@ -5,6 +5,7 @@ Authors: Rudy Peterson
 -/
 import Mathlib.Computability.Language
 import Mathlib.Algebra.Ring.Defs
+import Mathlib.Computability.Path
 
 /-!
 # Weighted Deterministic Finite Automata
@@ -37,6 +38,8 @@ namespace WDFA
 variable {α : Type u} {σ : Type v} {κ : Type k} (M : WDFA α σ κ) [W : Semiring κ]
 
 instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
-⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ W.zero)⟩
+⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ 0)⟩
+
+def PathInWDFA {s₁ s₃ : σ} (π : Path α κ s₁ s₃) : Prop := sorry
 
 end WDFA
