@@ -136,7 +136,7 @@ lemma zero_cauchy_prod (f : WeightedLanguage α κ) :
   simp only [zero_def_eq, Function.comp, cauchy_prod]
   simp only [List.splits,  List.map_map, List.splitAt_eq]
   unfold Function.comp
-  simp [List.map_const', List.length_range, List.sum_replicate, nsmul_zero]
+  simp [List.map_const', List.length_range, List.sum_replicate]
 
 lemma cauchy_prod_zero (f : WeightedLanguage α κ) : f.cauchy_prod 0 = 0 := by
   funext x
@@ -161,14 +161,12 @@ lemma one_cauchy_prod (f : WeightedLanguage α κ) :
   rw (occs := [2]) [←W.add_zero (f x)]
   congr
   cases x <;> simp
-  case cons a x =>
-    simp [onlyNil, nsmul_zero]
 
 lemma cauchy_prod_one (f : WeightedLanguage α κ) : f.cauchy_prod 1 = f := by
   funext xs
   simp only [one_def_eq, cauchy_prod, Function.comp, splits, List.map_map]
   unfold Function.comp
-  simp [List.range_add, List.range_succ_eq_map]
+  simp [List.range_succ_eq_map]
   unfold Function.comp
   simp [onlyNil_eq]
   cases xs
@@ -179,7 +177,7 @@ lemma cauchy_prod_one (f : WeightedLanguage α κ) : f.cauchy_prod 1 = f := by
     have hsilly : ∀ n ∈ range xs.length,
       (if 0 < xs.length - n then (0 : κ) else f (x :: take n xs)) = (0 : κ) := by
       simp [List.mem_range]; omega
-    simp [List.map_eq_replicate_iff.mpr hsilly, nsmul_zero]
+    simp [List.map_eq_replicate_iff.mpr hsilly]
 
 lemma cauchy_prod_left_distrib (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g + h) = f.cauchy_prod g + f.cauchy_prod h := by
@@ -220,7 +218,7 @@ lemma cauchy_prod_triple_l (f g h : WeightedLanguage α κ) :
   funext l
   simp only [cauchy_prod, cauchy_triple_l, Function.comp, sum_left_distrib]
   simp only [List.map_map, List.splits3_l, Function.comp]
-  simp only [List.map_flatMap, List.flatMap_def]
+  simp only [List.flatMap_def]
   simp [List.map_map]
   unfold Function.comp; simp
   unfold Function.comp; simp
@@ -234,7 +232,7 @@ lemma cauchy_prod_triple_r (f g h : WeightedLanguage α κ) :
   funext l
   simp only [cauchy_prod, cauchy_triple_r, Function.comp, sum_right_distrib]
   simp only [List.map_map, List.splits3_r, Function.comp]
-  simp only [List.map_flatMap, List.flatMap_def]
+  simp only [List.flatMap_def]
   simp [List.map_map]
   unfold Function.comp; simp
   unfold Function.comp; simp
@@ -296,7 +294,7 @@ lemma natCast_def_eq (n : ℕ) : (↑ n : WeightedLanguage α κ) = natCast_def 
 
 lemma natCast_def_succ (n : ℕ) : ↑ ((n + 1) : ℕ) = (((↑ n) + 1) : WeightedLanguage α κ) := by
   simp [natCast_def_eq, add_def_eq, one_def_eq]
-  dsimp [natCast_def, add_def_eq, add_def, one_def_eq]
+  simp [natCast_def, add_def_eq, one_def_eq]
 
 /-- `npow_def n f` raises `f` to the `n`th power. -/
 def npow_def (n : ℕ) (f : WeightedLanguage α κ) : WeightedLanguage α κ :=
