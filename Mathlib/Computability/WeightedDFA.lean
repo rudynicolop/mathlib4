@@ -34,7 +34,7 @@ is a 5-tuple (`(α, σ, step, start, final)`) where
 * (`final : σ → κ`) is a weighting function assigning states their final values.
 -/
 structure WDFA (α : Type u) (σ : Type v) (κ : Type k) where
-  /-- A transition function from state to state labelled by the alphabet producing a weight.  -/
+  /-- A transition function from state to state labelled by the alphabet producing a weight. -/
   step : σ → α → σ × κ
   /-- Starting state and weight. -/
   start : σ × κ
