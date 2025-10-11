@@ -5,6 +5,7 @@ Authors: Rudy Peterson
 -/
 import Mathlib.Algebra.Ring.Defs
 import Mathlib.Computability.WeightedPath
+import Mathlib.Computability.WeightedLanguage
 
 /-!
 # Weighted Deterministic Finite Automata
@@ -101,5 +102,10 @@ lemma eval_singleton (a : α) : M.eval [a] = Prod.map id (W.mul M.start.2) (M.st
 lemma eval_append_singleton (x : List α) (a : α) :
     M.eval (x ++ [a]) = Prod.map id (W.mul (M.eval x).2) (M.step (M.eval x).1 a) := by
   simp only [eval, evalFromL_append_singleton]
+
+/--
+`M.acceptsFrom s x` is the weighted lenaguage of `x` such that
+-/
+-- def acceptsFrom (s : σ) : WeightedL
 
 end WDFA
