@@ -211,13 +211,13 @@ lemma cauchy_prod_right_distrib (f g h : WeightedLanguage α κ) :
 
 /-- Left-associative cauchy product between three languages. -/
 def cauchy_triple_l (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
-  List.sum ∘ (List.map (fun x ↦ (f x.1 * g x.2.1) * h x.2.2)) ∘ List.splits3_l
+  List.sum ∘ (List.map (fun x ↦ (f x.1 * g x.2.1) * h x.2.2)) ∘ List.splits₃_left
 
 lemma cauchy_prod_triple_l (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = cauchy_triple_l f g h := by
   funext l
   simp only [cauchy_prod, cauchy_triple_l, Function.comp, sum_left_distrib]
-  simp only [List.map_map, List.splits3_l, Function.comp]
+  simp only [List.map_map, List.splits₃_left, Function.comp]
   simp only [List.flatMap_def]
   simp [List.map_map]
   unfold Function.comp; simp
@@ -225,13 +225,13 @@ lemma cauchy_prod_triple_l (f g h : WeightedLanguage α κ) :
 
 /-- Right-associative cauchy product between three languages. -/
 def cauchy_triple_r (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
-  List.sum ∘ (List.map (fun x ↦ f x.1 * (g x.2.1 * h x.2.2))) ∘ List.splits3_r
+  List.sum ∘ (List.map (fun x ↦ f x.1 * (g x.2.1 * h x.2.2))) ∘ List.splits₃_right
 
 lemma cauchy_prod_triple_r (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g.cauchy_prod h) = cauchy_triple_r f g h := by
   funext l
   simp only [cauchy_prod, cauchy_triple_r, Function.comp, sum_right_distrib]
-  simp only [List.map_map, List.splits3_r, Function.comp]
+  simp only [List.map_map, List.splits₃_right, Function.comp]
   simp only [List.flatMap_def]
   simp [List.map_map]
   unfold Function.comp; simp
@@ -241,7 +241,7 @@ lemma cauchy_triple_l_r (f g h : WeightedLanguage α κ) :
     cauchy_triple_l f g h = cauchy_triple_r f g h := by
   funext l
   simp [cauchy_triple_l, cauchy_triple_r, Function.comp, W.mul_assoc]
-  apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits3_l_r_perm]
+  apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits₃_left_right_perm]
 
 lemma cauchy_prod_assoc (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = f.cauchy_prod (g.cauchy_prod h) := by
