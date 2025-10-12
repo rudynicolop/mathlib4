@@ -44,7 +44,11 @@ structure WDFA (α : Type u) (σ : Type v) (κ : Type k) where
 
 namespace WDFA
 
-variable {α : Type u} {σ : Type v} {κ : Type k} (M : WDFA α σ κ) [W : Semiring κ]
+variable {α : Type u} {κ : Type k} [W : Semiring κ]
+
+section basic
+
+variable {σ : Type v} (M : WDFA α σ κ)
 
 instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
   ⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ 0)⟩
@@ -91,6 +95,13 @@ lemma evalFromL_append (sw : σ × κ) (x y : List α) :
 /-- `M.eval x` evaluates `M` with input `x` starting from the state `M.start`. -/
 def eval : List α → σ × κ := M.evalFromL M.start
 
+/-- `M.evalWeight x` evaluates `M` with input `x` starting from the state `M.start` producing the
+final weight. -/
+def evalWeight : WeightedLanguage α κ :=
+  fun x ↦
+    let (s, w) := M.eval x;
+    w * M.final s
+
 @[simp]
 lemma eval_nil : M.eval [] = M.start := rfl
 
@@ -103,9 +114,60 @@ lemma eval_append_singleton (x : List α) (a : α) :
     M.eval (x ++ [a]) = Prod.map id (W.mul (M.eval x).2) (M.step (M.eval x).1 a) := by
   simp only [eval, evalFromL_append_singleton]
 
-/--
-`M.acceptsFrom s x` is the weighted lenaguage of `x` such that
--/
--- def acceptsFrom (s : σ) : WeightedL
+/-- `M.acceptsFrom sw x` is the weighted lenaguage of `x` such that `(M.evalFromL sw x).1` is an
+accept state. -/
+def acceptsFrom (sw : σ × κ) : WeightedLanguage α κ :=
+  fun x ↦
+    let (s₂, w) := (M.evalFromL sw x);
+    w * M.final s₂
+
+/-- `M.accepts x` is the weighted lenaguage of `x` such that `(M.evalFromL M.start x).1` is an
+accept state. -/
+def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
+
+theorem weight_accepts (x : List α) : M.accepts x = M.evalWeight x :=
+  rfl
+
+end basic
+
+section union
+
+variable {σ1 σ2 : Type v}
+
+def union (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
+  start := ((M1.start.1, M2.start.1), M1.start.2 + M2.start.2)
+  final := fun (s1, s2) ↦ M1.final s1 + M2.final s2
+  step := fun (s1, s2) x ↦
+    let (s1', w1) := M1.step s1 x;
+    let (s2', w2) := M2.step s2 x;
+    ((s1', s2'), w1 + w2)
+
+instance : HAdd (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := ⟨union⟩
+
+theorem accepts_union {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+    (M1 + M2).accepts = M1.accepts + M2.accepts := by
+  sorry
+
+end union
+
+section inter
+
+variable {σ1 σ2 : Type v}
+
+def inter (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
+  start := ((M1.start.1, M2.start.1), M1.start.2 * M2.start.2)
+  final := fun (s1, s2) ↦ M1.final s1 * M2.final s2
+  step := fun (s1, s2) x ↦
+    let (s1', w1) := M1.step s1 x;
+    let (s2', w2) := M2.step s2 x;
+    ((s1', s2'), w1 * w2)
+
+instance : HMul (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := ⟨inter⟩
+
+theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+    (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
+  sorry
+
+end inter
 
 end WDFA
