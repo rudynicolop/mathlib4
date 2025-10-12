@@ -44,11 +44,11 @@ structure WDFA (α : Type u) (σ : Type v) (κ : Type k) where
 
 namespace WDFA
 
-variable {α : Type u} {κ : Type k} [W : Semiring κ]
+variable {α : Type u} {κ : Type k}
 
 section basic
 
-variable {σ : Type v} (M : WDFA α σ κ)
+variable {σ : Type v} (M : WDFA α σ κ) [W : Semiring κ]
 
 instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
   ⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ 0)⟩
@@ -75,22 +75,40 @@ lemma evalFromL_nil (sw : σ × κ) : M.evalFromL sw [] = sw := rfl
 
 @[simp]
 lemma evalFromL_singleton (sw : σ × κ) (a : α) :
-    M.evalFromL sw [a] = Prod.map id (W.mul sw.2) (M.step sw.1 a) := rfl
+    M.evalFromL sw [a] = Prod.map id (sw.2 * ·) (M.step sw.1 a) := rfl
 
 @[simp]
 lemma evalFromL_append_singleton (sw : σ × κ) (x : List α) (a : α) :
     M.evalFromL sw (x ++ [a]) =
-    Prod.map id (W.mul (M.evalFromL sw x).2) (M.step (M.evalFromL sw x).1 a) := by
+    Prod.map id ((M.evalFromL sw x).2 * ·) (M.step (M.evalFromL sw x).1 a) := by
   simp only [evalFromL, List.foldl_append, List.foldl_cons, List.foldl_nil]
+  congr
 
 @[simp]
 lemma evalFromL_cons (sw : σ × κ) (a : α) (x : List α) :
-    M.evalFromL sw (a :: x) = M.evalFromL (Prod.map id (W.mul sw.2) (M.step sw.1 a)) x := by
+    M.evalFromL sw (a :: x) = M.evalFromL (Prod.map id (sw.2 * ·) (M.step sw.1 a)) x := by
   simp only [evalFromL, List.foldl_cons]
+  congr
 
 lemma evalFromL_append (sw : σ × κ) (x y : List α) :
     M.evalFromL sw (x ++ y) = M.evalFromL (M.evalFromL sw x) y := by
   simp only [evalFromL, List.foldl_append]
+
+lemma evalFromL_prod (s : σ) (w1 w2 : κ) (x : List α) :
+    M.evalFromL (s, w1 * w2) x =
+    Prod.map id (w1 * ·) (M.evalFromL (s, w2) x) := by
+  induction x generalizing s w1 w2
+  case nil =>
+    simp
+  case cons a x ih =>
+    simp [evalFromL_cons, ←ih]
+    rcases (M.step s a) with ⟨s', w'⟩
+    simp [mul_assoc]
+
+lemma evalFromL_prod_one (s : σ) (w : κ) (x : List α) :
+    M.evalFromL (s, w) x =
+    Prod.map id (w * ·) (M.evalFromL (s, 1) x) := by
+  simp [←evalFromL_prod, W.mul_one]
 
 /-- `M.eval x` evaluates `M` with input `x` starting from the state `M.start`. -/
 def eval : List α → σ × κ := M.evalFromL M.start
@@ -106,12 +124,12 @@ def evalWeight : WeightedLanguage α κ :=
 lemma eval_nil : M.eval [] = M.start := rfl
 
 @[simp]
-lemma eval_singleton (a : α) : M.eval [a] = Prod.map id (W.mul M.start.2) (M.step M.start.1 a) := by
+lemma eval_singleton (a : α) : M.eval [a] = Prod.map id (M.start.2 * ·) (M.step M.start.1 a) := by
   simp only [eval, evalFromL_singleton]
 
 @[simp]
 lemma eval_append_singleton (x : List α) (a : α) :
-    M.eval (x ++ [a]) = Prod.map id (W.mul (M.eval x).2) (M.step (M.eval x).1 a) := by
+    M.eval (x ++ [a]) = Prod.map id ((M.eval x).2 * ·) (M.step (M.eval x).1 a) := by
   simp only [eval, evalFromL_append_singleton]
 
 /-- `M.acceptsFrom sw x` is the weighted lenaguage of `x` such that `(M.evalFromL sw x).1` is an
@@ -120,6 +138,25 @@ def acceptsFrom (sw : σ × κ) : WeightedLanguage α κ :=
   fun x ↦
     let (s₂, w) := (M.evalFromL sw x);
     w * M.final s₂
+
+@[simp]
+lemma acceptsFrom_nil (sw : σ × κ) : M.acceptsFrom sw [] = sw.2 * M.final sw.1 :=
+  rfl
+
+@[simp]
+lemma acceptsFrom_cons (sw : σ × κ) (a : α) (x : List α) :
+    M.acceptsFrom sw (a :: x) = M.acceptsFrom ((M.step sw.1 a).1, (sw.2 * (M.step sw.1 a).2)) x :=
+  rfl
+
+lemma acceptsFrom_prod (s : σ) (w1 w2 : κ) (x : List α) :
+    M.acceptsFrom (s, w1 * w2) x =
+    w1 * M.acceptsFrom (s, w2) x := by
+  simp [acceptsFrom, evalFromL_prod, mul_assoc]
+
+lemma acceptsFrom_prod_one (s : σ) (w : κ) (x : List α) :
+    M.acceptsFrom (s, w) x =
+    w * M.acceptsFrom (s, 1) x := by
+  simp [←acceptsFrom_prod]
 
 /-- `M.accepts x` is the weighted lenaguage of `x` such that `(M.evalFromL M.start x).1` is an
 accept state. -/
@@ -132,41 +169,121 @@ end basic
 
 section union
 
-variable {σ1 σ2 : Type v}
+variable {σ1 σ2 : Type v} [W : Semiring κ]
+
+@[simp]
+def union_start (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
+  ((M1.start.1, M2.start.1), M1.start.2 + M2.start.2)
+
+@[simp]
+def union_final (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) : κ :=
+  M1.final s.1 + M2.final s.2
+
+@[simp]
+def union_step (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) (a : α) : (σ1 × σ2) × κ :=
+  let sw1 := M1.step s.1 a;
+  let sw2 := M2.step s.2 a;
+  ((sw1.1, sw2.1), sw1.2 + sw2.2)
 
 def union (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
-  start := ((M1.start.1, M2.start.1), M1.start.2 + M2.start.2)
-  final := fun (s1, s2) ↦ M1.final s1 + M2.final s2
-  step := fun (s1, s2) x ↦
-    let (s1', w1) := M1.step s1 x;
-    let (s2', w2) := M2.step s2 x;
-    ((s1', s2'), w1 + w2)
+  start := union_start M1 M2
+  final := union_final M1 M2
+  step := union_step M1 M2
 
 instance : HAdd (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := ⟨union⟩
 
+lemma union_eq_hadd {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} : M1 + M2 = M1.union M2 := rfl
+
+@[simp]
+def union_start_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+  (M1 + M2).start = union_start M1 M2 := rfl
+
+@[simp]
+def union_final_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+  (M1 + M2).final = union_final M1 M2 := rfl
+
+@[simp]
+def union_step_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+  (M1 + M2).step = union_step M1 M2 := rfl
+
+lemma acceptsFrom_union {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
+  {x : List α} {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
+    (M1 + M2).acceptsFrom ((s1, s2), w1 + w2) x
+    = M1.acceptsFrom (s1, w1) x + M2.acceptsFrom (s2, w2) x := by
+  induction x generalizing s1 s2 w1 w2
+  case nil =>
+    simp
+    sorry
+  case cons a x ih =>
+    simp
+    sorry
+
 theorem accepts_union {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
     (M1 + M2).accepts = M1.accepts + M2.accepts := by
+  funext x
+  simp [accepts, WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
   sorry
 
 end union
 
 section inter
 
-variable {σ1 σ2 : Type v}
+variable {σ1 σ2 : Type v} [W : CommSemiring κ]
+
+@[simp]
+def inter_start (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
+  ((M1.start.1, M2.start.1), M1.start.2 * M2.start.2)
+
+@[simp]
+def inter_final (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) : κ :=
+  M1.final s.1 * M2.final s.2
+
+@[simp]
+def inter_step (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) (a : α) : (σ1 × σ2) × κ :=
+  let sw1 := M1.step s.1 a;
+  let sw2 := M2.step s.2 a;
+  ((sw1.1, sw2.1), sw1.2 * sw2.2)
 
 def inter (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
-  start := ((M1.start.1, M2.start.1), M1.start.2 * M2.start.2)
-  final := fun (s1, s2) ↦ M1.final s1 * M2.final s2
-  step := fun (s1, s2) x ↦
-    let (s1', w1) := M1.step s1 x;
-    let (s2', w2) := M2.step s2 x;
-    ((s1', s2'), w1 * w2)
+  start := inter_start M1 M2
+  final := inter_final M1 M2
+  step := inter_step M1 M2
 
 instance : HMul (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := ⟨inter⟩
 
+lemma inter_eq_hmul {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} : M1 * M2 = M1.inter M2 := rfl
+
+@[simp]
+def inter_start_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+  (M1 * M2).start = inter_start M1 M2 := rfl
+
+@[simp]
+def inter_final_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+  (M1 * M2).final = inter_final M1 M2 := rfl
+
+@[simp]
+def inter_step_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+  (M1 * M2).step = inter_step M1 M2 := rfl
+
+lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
+  {x : List α} {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
+    (M1 * M2).acceptsFrom ((s1, s2), w1 * w2) x
+    = M1.acceptsFrom (s1, w1) x * M2.acceptsFrom (s2, w2) x := by
+  induction x generalizing s1 s2 w1 w2
+  case nil =>
+    simp
+    exact mul_mul_mul_comm w1 w2 (M1.final s1) (M2.final s2)
+  case cons a x ih =>
+    simp [ih]
+    rcases (M1.step s1 a) with ⟨s1', w1'⟩
+    rcases (M2.step s2 a) with ⟨s2', w2'⟩
+    rw [acceptsFrom_prod_one]
+    sorry
+
 theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
     (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
-  sorry
+  funext x
+  simp [accepts, WeightedLanguage.pointwise_prod, acceptsFrom_inter]
 
 end inter
 
