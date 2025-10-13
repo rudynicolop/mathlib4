@@ -3108,6 +3108,7 @@ import Mathlib.Computability.TuringMachine
 import Mathlib.Computability.WeightedDFA
 import Mathlib.Computability.WeightedLanguage
 import Mathlib.Computability.WeightedPath
+import Mathlib.Computability.WeightedRegularExpressions
 import Mathlib.Condensed.AB
 import Mathlib.Condensed.Basic
 import Mathlib.Condensed.CartesianClosed
