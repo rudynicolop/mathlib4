@@ -6,6 +6,7 @@ Authors: Rudy Peterson
 import Mathlib.Algebra.Ring.Defs
 import Mathlib.Computability.WeightedPath
 import Mathlib.Computability.WeightedLanguage
+import Mathlib.Computability.DFA
 
 /-!
 # Weighted Deterministic Finite Automata
@@ -165,6 +166,9 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 theorem weight_accepts (x : List α) : M.accepts x = M.evalWeight x :=
   rfl
 
+-- TODO: fix final states
+def ofDFA (M : DFA α σ) : WDFA α σ κ :=
+  ⟨(fun s a ↦ (M.step s a, 1)), (M.start, 1), (fun s ↦ 0)⟩
 end basic
 
 section inter
@@ -235,5 +239,15 @@ theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
   simp [accepts, WeightedLanguage.pointwise_prod, acceptsFrom_inter]
 
 end inter
+
+section boolean
+
+variable {σ : Type v}
+
+-- TODO: fix false transitions in step
+def toDFA (M : WDFA α σ Bool) : DFA α σ :=
+  ⟨(fun s a ↦ (M.step s a).1), M.start.1, { s | M.final s } ⟩
+
+end boolean
 
 end WDFA
