@@ -167,66 +167,6 @@ theorem weight_accepts (x : List α) : M.accepts x = M.evalWeight x :=
 
 end basic
 
--- TODO: delete union: WDFAs are not closed for union.
-section union
-
-variable {σ1 σ2 : Type v} [W : Semiring κ]
-
-@[simp]
-def union_start (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
-  ((M1.start.1, M2.start.1), M1.start.2 + M2.start.2)
-
-@[simp]
-def union_final (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) : κ :=
-  M1.final s.1 + M2.final s.2
-
-@[simp]
-def union_step (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) (a : α) : (σ1 × σ2) × κ :=
-  let sw1 := M1.step s.1 a;
-  let sw2 := M2.step s.2 a;
-  ((sw1.1, sw2.1), sw1.2 + sw2.2)
-
-def union (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
-  start := union_start M1 M2
-  final := union_final M1 M2
-  step := union_step M1 M2
-
-instance : HAdd (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := ⟨union⟩
-
-lemma union_eq_hadd {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} : M1 + M2 = M1.union M2 := rfl
-
-@[simp]
-def union_start_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-  (M1 + M2).start = union_start M1 M2 := rfl
-
-@[simp]
-def union_final_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-  (M1 + M2).final = union_final M1 M2 := rfl
-
-@[simp]
-def union_step_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-  (M1 + M2).step = union_step M1 M2 := rfl
-
-lemma acceptsFrom_union {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
-  {x : List α} {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
-    (M1 + M2).acceptsFrom ((s1, s2), w1 + w2) x
-    = M1.acceptsFrom (s1, w1) x + M2.acceptsFrom (s2, w2) x := by
-  induction x generalizing s1 s2 w1 w2
-  case nil =>
-    simp
-    sorry
-  case cons a x ih =>
-    simp
-    sorry
-
-theorem accepts_union {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-    (M1 + M2).accepts = M1.accepts + M2.accepts := by
-  funext x
-  simp [accepts, WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
-  sorry
-
-end union
-
 section inter
 
 variable {σ1 σ2 : Type v} [W : CommSemiring κ]
