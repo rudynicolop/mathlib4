@@ -167,6 +167,7 @@ theorem weight_accepts (x : List α) : M.accepts x = M.evalWeight x :=
 
 end basic
 
+-- TODO: delete union: WDFAs are not closed for union.
 section union
 
 variable {σ1 σ2 : Type v} [W : Semiring κ]
@@ -277,8 +278,16 @@ lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
     simp [ih]
     rcases (M1.step s1 a) with ⟨s1', w1'⟩
     rcases (M2.step s2 a) with ⟨s2', w2'⟩
-    rw [acceptsFrom_prod_one]
-    sorry
+    simp [acceptsFrom_prod]
+    rw [acceptsFrom_prod_one M1 s1' w2,
+        acceptsFrom_prod_one M1 s1' w1',
+        acceptsFrom_prod_one M2 s2' w2']
+    simp [W.mul_assoc]
+    congr 1
+    simp [←W.mul_assoc]
+    congr 1
+    congr 1
+    rw [W.mul_comm _ w2, W.mul_assoc, W.mul_comm w1']
 
 theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
     (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
