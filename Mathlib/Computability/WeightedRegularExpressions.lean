@@ -117,7 +117,6 @@ theorem matches'_pow (P : WRegExp α κ) (n : ℕ) : (P ^ n).matches' = P.matche
     simp [pow_succ, ←ih]
     rfl
 
-/-- `matchEpsilon P` is true if and only if `P` matches the empty string -/
 def matchEpsilon : WRegExp α κ → κ
   | 0 => 1
   | 1 => 0
