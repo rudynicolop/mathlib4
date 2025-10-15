@@ -93,7 +93,16 @@ theorem eval_append_singleton (x : List α) (a : α) : M.eval (x ++ [a]) = M.ste
   evalFrom_append_singleton ..
 
 def acceptsFrom (S : Finset (σ × κ)) : WeightedLanguage α κ :=
-  fun x ↦ ∑ sw ∈ M.evalFrom S x, sw.2
+  fun x ↦ ∑ sw ∈ M.evalFrom S x, sw.2 * M.final sw.1
+
+@[simp]
+theorem acceptsFrom_nil (S : Finset (σ × κ)) :
+    M.acceptsFrom S [] = ∑ sw ∈ S, sw.2 * M.final sw.1 :=
+  rfl
+
+@[simp]
+theorem acceptsFrom_cons (S : Finset (σ × κ)) (a : α) (x : List α) :
+    M.acceptsFrom S (a :: x) = M.acceptsFrom (M.stepSet S a) x := rfl
 
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
