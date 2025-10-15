@@ -183,9 +183,7 @@ lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
     simp [stepSet, Finset.map_eq_image, Finset.biUnion_image]
     simp [Finset.image_image]
     apply Finset.ext
-    rintro ⟨s1' | s2', w⟩
-    · simp [embed_prodl, embed_prodr]
-    · simp [embed_prodl, embed_prodr]
+    rintro ⟨s1' | s2', w⟩ <;> simp [embed_prodl, embed_prodr]
 
 lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
     (M1 + M2).accepts = M1.accepts + M2.accepts := by
