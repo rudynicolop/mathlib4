@@ -4,10 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
 import Mathlib.Computability.WeightedDFA
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Data.Finset.NAry
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
+import Mathlib.Data.Multiset.Basic
+import Mathlib.Data.Multiset.Functor
+-- import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+-- import Mathlib.Data.Finset.NAry
+-- import Mathlib.Algebra.BigOperators.Ring.Finset
+-- import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -19,9 +21,9 @@ universe u v k
 
 structure WNFA (α : Type u) (σ : Type v) (κ : Type k) where
   /-- The NFA's transition function -/
-  step : σ → α → Finset (σ × κ)
+  step : σ → α → Multiset (σ × κ)
   /-- Initial weights. -/
-  start : Finset (σ × κ)
+  start : Multiset (σ × κ)
   /-- Final weights. -/
   final : σ → κ
 
@@ -38,14 +40,11 @@ instance : Inhabited (WNFA α σ κ) :=
 
 variable (M : WNFA α σ κ)
 
--- `Finset.image` requies this.
-variable [DecidableEq σ] [DecidableEq κ]
+def stepSet (S : Multiset (σ × κ)) (a : α) : Multiset (σ × κ) :=
+  S.bind (fun sw ↦ (Prod.map id (sw.2 * ·)) <$> (M.step sw.1 a))
 
-def stepSet (S : Finset (σ × κ)) (a : α) : Finset (σ × κ) :=
-  S.biUnion (fun sw ↦ Finset.image (Prod.map id (sw.2 * ·)) (M.step sw.1 a))
-
-theorem mem_stepSet {sw : σ × κ} {S : Finset (σ × κ)} {a : α} :
-    sw ∈ M.stepSet S a ↔ ∃ tw ∈ S, sw ∈ Finset.image (Prod.map id (tw.2 * ·)) (M.step tw.1 a) := by
+theorem mem_stepSet {sw : σ × κ} {S : Multiset (σ × κ)} {a : α} :
+    sw ∈ M.stepSet S a ↔ ∃ tw ∈ S, sw ∈ (Prod.map id (tw.2 * ·)) <$> (M.step tw.1 a) := by
   simp [stepSet]
 
 @[simp]
@@ -53,34 +52,34 @@ theorem stepSet_empty (a : α) : M.stepSet ∅ a = ∅ := by simp [stepSet]
 
 @[simp]
 theorem stepSet_singleton (sw : σ × κ) (a : α) :
-    M.stepSet {sw} a = Finset.image (Prod.map id (sw.2 * ·)) (M.step sw.1 a) := by
+    M.stepSet {sw} a = (Prod.map id (sw.2 * ·)) <$> (M.step sw.1 a) := by
   simp [stepSet]
 
-def evalFrom (S : Finset (σ × κ)) : List α → Finset (σ × κ) :=
+def evalFrom (S : Multiset (σ × κ)) : List α → Multiset (σ × κ) :=
   List.foldl M.stepSet S
 
 @[simp]
-theorem evalFrom_nil (S : Finset (σ × κ)) : M.evalFrom S [] = S :=
+theorem evalFrom_nil (S : Multiset (σ × κ)) : M.evalFrom S [] = S :=
   rfl
 
 @[simp]
-theorem evalFrom_singleton (S : Finset (σ × κ)) (a : α) : M.evalFrom S [a] = M.stepSet S a :=
+theorem evalFrom_singleton (S : Multiset (σ × κ)) (a : α) : M.evalFrom S [a] = M.stepSet S a :=
   rfl
 
 @[simp]
-theorem evalFrom_cons (S : Finset (σ × κ)) (a : α) (x : List α) :
+theorem evalFrom_cons (S : Multiset (σ × κ)) (a : α) (x : List α) :
     M.evalFrom S (a :: x) = M.evalFrom (M.stepSet S a) x :=
   rfl
 
-theorem evalFrom_append_singleton (S : Finset (σ × κ)) (x : List α) (a : α) :
+theorem evalFrom_append_singleton (S : Multiset (σ × κ)) (x : List α) (a : α) :
     M.evalFrom S (x ++ [a]) = M.stepSet (M.evalFrom S x) a := by
   simp only [evalFrom, List.foldl_append, List.foldl_cons, List.foldl_nil]
 
-theorem evalFrom_append (S : Finset (σ × κ)) (x y : List α) :
+theorem evalFrom_append (S : Multiset (σ × κ)) (x y : List α) :
     M.evalFrom S (x ++ y) = M.evalFrom (M.evalFrom S x) y := by
   simp only [evalFrom, List.foldl_append]
 
-def eval : List α → Finset (σ × κ) :=
+def eval : List α → Multiset (σ × κ) :=
   M.evalFrom M.start
 
 @[simp]
@@ -95,16 +94,16 @@ theorem eval_singleton (a : α) : M.eval [a] = M.stepSet M.start a :=
 theorem eval_append_singleton (x : List α) (a : α) : M.eval (x ++ [a]) = M.stepSet (M.eval x) a :=
   evalFrom_append_singleton ..
 
-def acceptsFrom (S : Finset (σ × κ)) : WeightedLanguage α κ :=
-  fun x ↦ ∑ sw ∈ M.evalFrom S x, sw.2 * M.final sw.1
+def acceptsFrom (S : Multiset (σ × κ)) : WeightedLanguage α κ :=
+  fun x ↦ (Multiset.map (fun sw ↦ sw.2 * (M.final sw.1)) (M.evalFrom S x)).sum
 
 @[simp]
-theorem acceptsFrom_nil (S : Finset (σ × κ)) :
-    M.acceptsFrom S [] = ∑ sw ∈ S, sw.2 * M.final sw.1 :=
+theorem acceptsFrom_nil (S : Multiset (σ × κ)) :
+    M.acceptsFrom S [] = (Multiset.map (fun sw ↦ sw.2 * (M.final sw.1)) S).sum :=
   rfl
 
 @[simp]
-theorem acceptsFrom_cons (S : Finset (σ × κ)) (a : α) (x : List α) :
+theorem acceptsFrom_cons (S : Multiset (σ × κ)) (a : α) (x : List α) :
     M.acceptsFrom S (a :: x) = M.acceptsFrom (M.stepSet S a) x := rfl
 
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
@@ -115,22 +114,15 @@ section union
 
 variable {σ1 σ2 : Type v}
 
-def embed_prodl : σ1 × κ ↪ (σ1 ⊕ σ2) × κ :=
-  open Function.Embedding in prodMap inl (Function.Embedding.refl κ)
-
-def embed_prodr : σ2 × κ ↪ (σ1 ⊕ σ2) × κ :=
-  open Function.Embedding in prodMap inr (Function.Embedding.refl κ)
-
-lemma disjoint_injlr {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
-    Disjoint (Finset.map embed_prodl S1) (Finset.map embed_prodr S2) := by
-  simp [←Finset.disjoint_val, Multiset.disjoint_map_map]
-  simp [embed_prodl, embed_prodr]
+lemma disjoint_injlr {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
+    Disjoint (Prod.map Sum.inl id <$> S1) (Prod.map Sum.inr id <$> S2) := by
+  simp [Multiset.disjoint_map_map]
 
 variable [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
 
 @[simp]
-def union_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Finset ((σ1 ⊕ σ2) × κ) :=
-  (Finset.map embed_prodl M1.start) ∪ (Finset.map embed_prodr M2.start)
+def union_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Multiset ((σ1 ⊕ σ2) × κ) :=
+  (Prod.map Sum.inl id <$> M1.start) ∪ (Prod.map Sum.inr id <$> M2.start)
 
 @[simp]
 def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 ⊕ σ2) : κ :=
@@ -138,10 +130,10 @@ def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 ⊕ σ2) : 
 
 @[simp]
 def union_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
-  (s : σ1 ⊕ σ2) (a : α) : Finset ((σ1 ⊕ σ2) × κ) :=
+  (s : σ1 ⊕ σ2) (a : α) : Multiset ((σ1 ⊕ σ2) × κ) :=
   s.casesOn
-    (fun s1 ↦ Finset.map embed_prodl (M1.step s1 a))
-    (fun s2 ↦ Finset.map embed_prodr (M2.step s2 a))
+    (fun s1 ↦ Prod.map Sum.inl id <$> M1.step s1 a)
+    (fun s2 ↦ Prod.map Sum.inr id <$> M2.step s2 a)
 
 def union (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 ⊕ σ2) κ where
   step := union_step M1 M2
@@ -169,28 +161,26 @@ lemma union_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 variable [W : Semiring κ]
 
 lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
-  {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
-    (M1 + M2).acceptsFrom ((Finset.map embed_prodl S1) ∪ (Finset.map embed_prodr S2))
+  {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
+    (M1 + M2).acceptsFrom ((Prod.map Sum.inl id <$> S1) ∪ (Prod.map Sum.inr id <$> S2))
     = M1.acceptsFrom S1 + M2.acceptsFrom S2 := by
   funext x
   induction x generalizing S1 S2
   case nil =>
     simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
-    simp [Finset.sum_union disjoint_injlr]
-    congr
+    simp [←Multiset.fmap_def, ←Multiset.add_eq_union_iff_disjoint.mpr disjoint_injlr]
+    simp [Multiset.fmap_def]
   case cons a x ih =>
     simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def] at *
     simp [←ih]
     clear ih
     congr 1
-    simp [stepSet, Finset.map_eq_image, Finset.biUnion_image]
-    simp [Finset.image_image]
-    apply Finset.ext
-    rintro ⟨s1' | s2', w⟩ <;> simp [embed_prodl, embed_prodr]
+    simp [stepSet, ←Multiset.fmap_def, ←Multiset.add_eq_union_iff_disjoint.mpr disjoint_injlr]
+    simp [Multiset.fmap_def, Multiset.bind_map, Multiset.map_bind, Prod.map_map]
 
 lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
     (M1 + M2).accepts = M1.accepts + M2.accepts := by
-  simp [accepts, acceptsFrom_union]
+  simp [accepts, ←acceptsFrom_union]
 
 end union
 
@@ -203,8 +193,8 @@ def combine (sw1 : σ1 × κ) (sw2 : σ2 × κ) : (σ1 × σ2) × κ :=
   ((sw1.1, sw2.1,), sw1.2 * sw2.2)
 
 @[simp]
-def inter_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Finset ((σ1 × σ2) × κ) :=
-  Finset.image₂ combine M1.start M2.start
+def inter_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Multiset ((σ1 × σ2) × κ) :=
+  Multiset.image₂ combine M1.start M2.start
 
 @[simp]
 def inter_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : κ :=
@@ -212,8 +202,8 @@ def inter_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : �
 
 @[simp]
 def inter_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
-  (s : σ1 × σ2) (a : α) : Finset ((σ1 × σ2) × κ) :=
-  Finset.image₂ combine (M1.step s.1 a) (M2.step s.2 a)
+  (s : σ1 × σ2) (a : α) : Multiset ((σ1 × σ2) × κ) :=
+  Multiset.image₂ combine (M1.step s.1 a) (M2.step s.2 a)
 
 def inter (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 × σ2) κ where
   step := inter_step M1 M2
@@ -236,12 +226,12 @@ lemma inter_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 lemma inter_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
   (M1 * M2).step = inter_step M1 M2 := rfl
 
-#loogle ∑ _ ∈ Finset.image _ _, _
+#loogle ∑ _ ∈ Multiset.image _ _, _
 
 -- TODO: impossible
-lemma combine_InjOn {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
-    Set.InjOn (Function.uncurry combine) (Finset.toSet (S1 ×ˢ S2)) := by
-  simp only [Finset.coe_product, Set.InjOn]
+lemma combine_InjOn {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
+    Set.InjOn (Function.uncurry combine) (Multiset.toSet (S1 ×ˢ S2)) := by
+  simp only [Multiset.coe_product, Set.InjOn]
   rintro ⟨⟨s1, w1⟩, ⟨s2, w2⟩⟩
   simp
   rintro hS1 hS2 s1' w1' s2' w2' hS1' hS2' rfl rfl hw
@@ -250,14 +240,14 @@ lemma combine_InjOn {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
 -- #loogle ?x * _ = ?x * _
 
 lemma combine_pairwise_eq_zero {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
-  {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
-    (Finset.toSet (S1 ×ˢ S2)).Pairwise
+  {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
+    (Multiset.toSet (S1 ×ˢ S2)).Pairwise
     fun i j ↦
       Function.uncurry combine i = Function.uncurry combine j →
       (Function.uncurry combine i).2 *
           (M1.final (Function.uncurry combine i).1.1 * M2.final (Function.uncurry combine i).1.2) =
         0 := by
-  simp only [Finset.coe_product]
+  simp only [Multiset.coe_product]
   rintro ⟨⟨s1, w1⟩, ⟨s2, w2⟩⟩
   simp
   rintro hS1 hS2 s1' w1' s2' w2' hS1' hS2' hneg rfl rfl hw
@@ -282,20 +272,20 @@ lemma combine_pairwise_eq_zero {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
 
 #loogle (∑ _ ∈ _, _) = ∑ _ ∈ _, _
 
-#loogle Finset.image _ (_ ×ˢ _)
+#loogle Multiset.image _ (_ ×ˢ _)
 
-#loogle Finset.image, Finset.map
+#loogle Multiset.image, Multiset.map
 
 lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
-  {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
-    (M1 * M2).acceptsFrom (Finset.image₂ combine S1 S2)
+  {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
+    (M1 * M2).acceptsFrom (Multiset.image₂ combine S1 S2)
     = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
   funext x
   simp [WeightedLanguage.pointwise_prod]
   induction x
   case nil =>
-    simp [Finset.sum_mul_sum, ←Finset.sum_product']
-    simp [←Finset.image_uncurry_product]
+    simp [Multiset.sum_mul_sum, ←Multiset.sum_product']
+    simp [←Multiset.image_uncurry_product]
     sorry
   case cons a x ih =>
     sorry
