@@ -112,13 +112,17 @@ section union
 
 -- #loogle (?α → ?β), (?α ↪ ?β)
 
-variable {σ1 σ2 : Type v} [W : Semiring κ] [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
+variable {σ1 σ2 : Type v} [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
+
+def embed_prodl : σ1 × κ ↪ (σ1 ⊕ σ2) × κ :=
+  open Function.Embedding in prodMap inl (Function.Embedding.refl κ)
+
+def embed_prodr : σ2 × κ ↪ (σ1 ⊕ σ2) × κ :=
+  open Function.Embedding in prodMap inr (Function.Embedding.refl κ)
 
 @[simp]
 def union_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Finset ((σ1 ⊕ σ2) × κ) :=
-  open Function.Embedding in
-  (Finset.map (prodMap inl (Function.Embedding.refl κ)) M1.start)
-  ∪ (Finset.map (prodMap inr (Function.Embedding.refl κ)) M2.start)
+  (Finset.map embed_prodl M1.start) ∪ (Finset.map embed_prodr M2.start)
 
 @[simp]
 def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → κ
@@ -128,16 +132,69 @@ def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → κ
 @[simp]
 def union_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → α → Finset ((σ1 ⊕ σ2) × κ)
   | .inl s1, a =>
-    open Function.Embedding in
-    Finset.map (prodMap inl (Function.Embedding.refl κ)) (M1.step s1 a)
+    Finset.map embed_prodl (M1.step s1 a)
   | .inr s2, a =>
-    open Function.Embedding in
-    Finset.map (prodMap inr (Function.Embedding.refl κ)) (M2.step s2 a)
+    Finset.map embed_prodr (M2.step s2 a)
 
 def union (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 ⊕ σ2) κ where
   step := union_step M1 M2
   start := union_start M1 M2
   final := union_final M1 M2
+
+instance : HAdd (WNFA α σ1 κ) (WNFA α σ2 κ) (WNFA α (σ1 ⊕ σ2) κ) :=
+  ⟨union⟩
+
+lemma union_eq_hadd {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+    M1 + M2 = M1.union M2 := rfl
+
+@[simp]
+lemma union_start_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+    (M1 + M2).start = M1.union_start M2 := rfl
+
+@[simp]
+lemma union_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+    (M1 + M2).final = M1.union_final M2 := rfl
+
+@[simp]
+lemma union_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+    (M1 + M2).step = M1.union_step M2 := rfl
+
+variable [W : Semiring κ]
+
+#loogle (∑ _ ∈ _, _) + (∑ _ ∈ _, _)
+#check Finset.sum_union
+
+#loogle Disjoint, Finset
+
+#check Finset.disjoint_map_inl_map_inr
+
+#loogle Disjoint, Finset.map
+
+#loogle Finset.map
+
+#loogle Finset.map, Function.Embedding.prodMap
+
+lemma disjoint_injlr {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
+    Disjoint (Finset.map embed_prodl S1) (Finset.map embed_prodr S2) := by
+  sorry
+
+lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
+  {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
+    (M1 + M2).acceptsFrom ((Finset.map embed_prodl S1) ∪ (Finset.map embed_prodr S2))
+    = M1.acceptsFrom S1 + M2.acceptsFrom S2 := by
+  funext x
+  induction x generalizing S1 S2
+  case nil =>
+    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+    simp [Finset.sum_union]
+    sorry
+  case cons a x ih =>
+    simp
+    sorry
+
+lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+    (M1 + M2).accepts = M1.accepts + M2.accepts := by
+  simp [accepts, acceptsFrom_union]
 
 end union
 
