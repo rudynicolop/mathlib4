@@ -5,6 +5,9 @@ Authors: Rudy Peterson
 -/
 import Mathlib.Computability.WeightedDFA
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Data.Finset.NAry
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -190,6 +193,118 @@ lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
   simp [accepts, acceptsFrom_union]
 
 end union
+
+section inter
+
+variable {σ1 σ2 : Type v} [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ] [W : CommSemiring κ]
+
+@[simp]
+def combine (sw1 : σ1 × κ) (sw2 : σ2 × κ) : (σ1 × σ2) × κ :=
+  ((sw1.1, sw2.1,), sw1.2 * sw2.2)
+
+@[simp]
+def inter_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Finset ((σ1 × σ2) × κ) :=
+  Finset.image₂ combine M1.start M2.start
+
+@[simp]
+def inter_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : κ :=
+  M1.final s.1 * M2.final s.2
+
+@[simp]
+def inter_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
+  (s : σ1 × σ2) (a : α) : Finset ((σ1 × σ2) × κ) :=
+  Finset.image₂ combine (M1.step s.1 a) (M2.step s.2 a)
+
+def inter (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 × σ2) κ where
+  step := inter_step M1 M2
+  start := inter_start M1 M2
+  final := inter_final M1 M2
+
+instance : HMul (WNFA α σ1 κ) (WNFA α σ2 κ) (WNFA α (σ1 × σ2) κ) := ⟨inter⟩
+
+lemma inter_eq_hmul {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} : M1 * M2 = M1.inter M2 := rfl
+
+@[simp]
+lemma inter_start_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+  (M1 * M2).start = inter_start M1 M2 := rfl
+
+@[simp]
+lemma inter_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+  (M1 * M2).final = inter_final M1 M2 := rfl
+
+@[simp]
+lemma inter_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+  (M1 * M2).step = inter_step M1 M2 := rfl
+
+#loogle ∑ _ ∈ Finset.image _ _, _
+
+-- TODO: impossible
+lemma combine_InjOn {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
+    Set.InjOn (Function.uncurry combine) (Finset.toSet (S1 ×ˢ S2)) := by
+  simp only [Finset.coe_product, Set.InjOn]
+  rintro ⟨⟨s1, w1⟩, ⟨s2, w2⟩⟩
+  simp
+  rintro hS1 hS2 s1' w1' s2' w2' hS1' hS2' rfl rfl hw
+  sorry
+
+-- #loogle ?x * _ = ?x * _
+
+lemma combine_pairwise_eq_zero {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
+  {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
+    (Finset.toSet (S1 ×ˢ S2)).Pairwise
+    fun i j ↦
+      Function.uncurry combine i = Function.uncurry combine j →
+      (Function.uncurry combine i).2 *
+          (M1.final (Function.uncurry combine i).1.1 * M2.final (Function.uncurry combine i).1.2) =
+        0 := by
+  simp only [Finset.coe_product]
+  rintro ⟨⟨s1, w1⟩, ⟨s2, w2⟩⟩
+  simp
+  rintro hS1 hS2 s1' w1' s2' w2' hS1' hS2' hneg rfl rfl hw
+  have hw2 := fun hw1 ↦ hneg rfl hw1 rfl
+  clear hneg
+  cases (decEq w1 w1')
+  case isTrue hw1 =>
+    rcases hw1 with rfl
+    specialize hw2 rfl
+    cases (decEq w1 0)
+    case isTrue hw1₀ =>
+      simp [hw1₀]
+    case isFalse hw1₀ =>
+      cases (decEq w2 0)
+      case isTrue hw2₀ =>
+        simp [hw2₀]
+      case isFalse hw2₀ =>
+        exfalso
+        sorry
+  case isFalse hw1 =>
+    sorry
+
+#loogle (∑ _ ∈ _, _) = ∑ _ ∈ _, _
+
+#loogle Finset.image _ (_ ×ˢ _)
+
+#loogle Finset.image, Finset.map
+
+lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
+  {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
+    (M1 * M2).acceptsFrom (Finset.image₂ combine S1 S2)
+    = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
+  funext x
+  simp [WeightedLanguage.pointwise_prod]
+  induction x
+  case nil =>
+    simp [Finset.sum_mul_sum, ←Finset.sum_product']
+    simp [←Finset.image_uncurry_product]
+    sorry
+  case cons a x ih =>
+    sorry
+
+theorem accepts_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
+    (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
+  simp [accepts, acceptsFrom_inter]
+
+end inter
 
 end WNFA
 
