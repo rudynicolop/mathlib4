@@ -165,8 +165,6 @@ lemma union_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 
 variable [W : Semiring κ]
 
-#check Finset.sum_union
-
 lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
     (M1 + M2).acceptsFrom ((Finset.map embed_prodl S1) ∪ (Finset.map embed_prodr S2))
@@ -178,8 +176,16 @@ lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
     simp [Finset.sum_union disjoint_injlr]
     congr
   case cons a x ih =>
-    simp
-    sorry
+    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def] at *
+    simp [←ih]
+    clear ih
+    congr 1
+    simp [stepSet, Finset.map_eq_image, Finset.biUnion_image]
+    simp [Finset.image_image]
+    apply Finset.ext
+    rintro ⟨s1' | s2', w⟩
+    · simp [embed_prodl, embed_prodr]
+    · simp [embed_prodl, embed_prodr]
 
 lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
     (M1 + M2).accepts = M1.accepts + M2.accepts := by
