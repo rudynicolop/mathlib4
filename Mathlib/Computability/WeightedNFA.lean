@@ -108,4 +108,37 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
 
+section union
+
+-- #loogle (?α → ?β), (?α ↪ ?β)
+
+variable {σ1 σ2 : Type v} [W : Semiring κ] [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
+
+@[simp]
+def union_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Finset ((σ1 ⊕ σ2) × κ) :=
+  open Function.Embedding in
+  (Finset.map (prodMap inl (Function.Embedding.refl κ)) M1.start)
+  ∪ (Finset.map (prodMap inr (Function.Embedding.refl κ)) M2.start)
+
+@[simp]
+def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → κ
+  | .inl s1 => M1.final s1
+  | .inr s2 => M2.final s2
+
+@[simp]
+def union_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → α → Finset ((σ1 ⊕ σ2) × κ)
+  | .inl s1, a =>
+    open Function.Embedding in
+    Finset.map (prodMap inl (Function.Embedding.refl κ)) (M1.step s1 a)
+  | .inr s2, a =>
+    open Function.Embedding in
+    Finset.map (prodMap inr (Function.Embedding.refl κ)) (M2.step s2 a)
+
+def union (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 ⊕ σ2) κ where
+  step := union_step M1 M2
+  start := union_start M1 M2
+  final := union_final M1 M2
+
+end union
+
 end WNFA
