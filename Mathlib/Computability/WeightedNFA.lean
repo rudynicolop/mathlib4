@@ -192,3 +192,28 @@ lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 end union
 
 end WNFA
+
+namespace WDFA
+
+variable {α : Type u} {κ : Type k} {σ : Type v} [W : Semiring κ]
+
+@[simp] def toWNFA (M : WDFA α σ κ) : WNFA α σ κ where
+  step s a := {M.step s a}
+  start := {M.start}
+  final := M.final
+
+variable [DecidableEq σ] [DecidableEq κ]
+
+theorem acceptsFrom_toWNFA (M : WDFA α σ κ) (sw : σ × κ) :
+    M.acceptsFrom sw = M.toWNFA.acceptsFrom {sw} := by
+  funext x
+  induction x generalizing sw
+  case nil =>
+    simp
+  case cons a x ih =>
+    simp [ih, Prod.map_def]
+
+theorem accepts_toWNFA (M : WDFA α σ κ) : M.accepts = M.toWNFA.accepts := by
+  simp [WDFA.accepts, WNFA.accepts, acceptsFrom_toWNFA]
+
+end WDFA
