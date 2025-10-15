@@ -110,9 +110,7 @@ end basic
 
 section union
 
--- #loogle (?α → ?β), (?α ↪ ?β)
-
-variable {σ1 σ2 : Type v} [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
+variable {σ1 σ2 : Type v}
 
 def embed_prodl : σ1 × κ ↪ (σ1 ⊕ σ2) × κ :=
   open Function.Embedding in prodMap inl (Function.Embedding.refl κ)
@@ -120,21 +118,27 @@ def embed_prodl : σ1 × κ ↪ (σ1 ⊕ σ2) × κ :=
 def embed_prodr : σ2 × κ ↪ (σ1 ⊕ σ2) × κ :=
   open Function.Embedding in prodMap inr (Function.Embedding.refl κ)
 
+lemma disjoint_injlr {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
+    Disjoint (Finset.map embed_prodl S1) (Finset.map embed_prodr S2) := by
+  simp [←Finset.disjoint_val, Multiset.disjoint_map_map]
+  simp [embed_prodl, embed_prodr]
+
+variable [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
+
 @[simp]
 def union_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Finset ((σ1 ⊕ σ2) × κ) :=
   (Finset.map embed_prodl M1.start) ∪ (Finset.map embed_prodr M2.start)
 
 @[simp]
-def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → κ
-  | .inl s1 => M1.final s1
-  | .inr s2 => M2.final s2
+def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 ⊕ σ2) : κ :=
+  s.casesOn M1.final M2.final
 
 @[simp]
-def union_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : σ1 ⊕ σ2 → α → Finset ((σ1 ⊕ σ2) × κ)
-  | .inl s1, a =>
-    Finset.map embed_prodl (M1.step s1 a)
-  | .inr s2, a =>
-    Finset.map embed_prodr (M2.step s2 a)
+def union_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
+  (s : σ1 ⊕ σ2) (a : α) : Finset ((σ1 ⊕ σ2) × κ) :=
+  s.casesOn
+    (fun s1 ↦ Finset.map embed_prodl (M1.step s1 a))
+    (fun s2 ↦ Finset.map embed_prodr (M2.step s2 a))
 
 def union (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 ⊕ σ2) κ where
   step := union_step M1 M2
@@ -161,22 +165,7 @@ lemma union_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 
 variable [W : Semiring κ]
 
-#loogle (∑ _ ∈ _, _) + (∑ _ ∈ _, _)
 #check Finset.sum_union
-
-#loogle Disjoint, Finset
-
-#check Finset.disjoint_map_inl_map_inr
-
-#loogle Disjoint, Finset.map
-
-#loogle Finset.map
-
-#loogle Finset.map, Function.Embedding.prodMap
-
-lemma disjoint_injlr {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
-    Disjoint (Finset.map embed_prodl S1) (Finset.map embed_prodr S2) := by
-  sorry
 
 lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Finset (σ1 × κ)} {S2 : Finset (σ2 × κ)} :
@@ -186,8 +175,8 @@ lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   induction x generalizing S1 S2
   case nil =>
     simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
-    simp [Finset.sum_union]
-    sorry
+    simp [Finset.sum_union disjoint_injlr]
+    congr
   case cons a x ih =>
     simp
     sorry
