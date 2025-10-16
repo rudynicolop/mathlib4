@@ -21,6 +21,8 @@ TODO
 
 universe u v k
 
+-- TODO: should use `Finsupp σ κ` instead:
+-- [https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finsupp/Defs.html]
 structure WNFA (α : Type u) (σ : Type v) (κ : Type k) where
   /-- The NFA's transition function -/
   step : σ → α → Multiset (σ × κ)
@@ -228,31 +230,34 @@ lemma inter_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 lemma inter_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
   (M1 * M2).step = inter_step M1 M2 := rfl
 
-#check Multiset.map_congr
-
 lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
     (M1 * M2).acceptsFrom (combine <$> (S1 ×ˢ S2))
     = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
   funext x
   simp [WeightedLanguage.pointwise_prod]
-  induction x
+  induction x generalizing S1 S2
   case nil =>
     rw [mul_comm (M1.acceptsFrom S1 [])]
     simp [←Multiset.sum_map_mul_left, ←Multiset.sum_map_mul_right]
-    simp [Multiset.instSProd, Multiset.product.eq_1]
-    simp [Multiset.map_bind]
-    congr
-    funext ⟨s1, w1⟩
-    congr
-    funext ⟨s2, w2⟩
-    simp
+    simp [Multiset.instSProd, Multiset.product.eq_1, Multiset.map_bind]
+    congr; funext ⟨s1, w1⟩
+    congr; funext ⟨s2, w2⟩
     simp [←mul_comm (w1 * M1.final s1), mul_assoc]
     congr 1
-    rw [←mul_assoc (M1.final s1), mul_comm (M1.final s1) w2]
-    simp [mul_assoc]
+    simp [←mul_assoc (M1.final s1), mul_comm (M1.final s1) w2, mul_assoc]
   case cons a x ih =>
-    sorry
+    simp [←ih]
+    clear ih
+    simp [stepSet]
+    congr
+    simp [Multiset.instSProd, Multiset.product.eq_1, Multiset.bind_map]
+    simp [Multiset.map_bind, Multiset.bind_assoc, Multiset.bind_map, ←Multiset.bind_bind S2]
+    congr; funext ⟨s2, w2⟩
+    congr; funext ⟨s1, w1⟩
+    congr; funext ⟨s1', w1'⟩
+    congr; funext ⟨s2', w2'⟩
+    simp [mul_assoc w1 w1', ←mul_assoc w1' w2 w2', mul_comm w1' w2, mul_assoc]
 
 theorem accepts_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
     (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
