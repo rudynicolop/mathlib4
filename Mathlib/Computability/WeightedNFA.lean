@@ -6,6 +6,8 @@ Authors: Rudy Peterson
 import Mathlib.Computability.WeightedDFA
 import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Functor
+import Mathlib.Algebra.Module.BigOperators
+import Mathlib.Algebra.BigOperators.Ring.Multiset
 -- import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 -- import Mathlib.Data.Finset.NAry
 -- import Mathlib.Algebra.BigOperators.Ring.Finset
@@ -186,15 +188,15 @@ end union
 
 section inter
 
-variable {σ1 σ2 : Type v} [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ] [W : CommSemiring κ]
+variable {σ1 σ2 : Type v} [W : CommSemiring κ]
 
 @[simp]
-def combine (sw1 : σ1 × κ) (sw2 : σ2 × κ) : (σ1 × σ2) × κ :=
-  ((sw1.1, sw2.1,), sw1.2 * sw2.2)
+def combine (sw : (σ1 × κ) × (σ2 × κ)) : (σ1 × σ2) × κ :=
+  ((sw.1.1, sw.2.1,), sw.1.2 * sw.2.2)
 
 @[simp]
 def inter_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Multiset ((σ1 × σ2) × κ) :=
-  Multiset.image₂ combine M1.start M2.start
+  combine <$> (M1.start ×ˢ M2.start)
 
 @[simp]
 def inter_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : κ :=
@@ -203,7 +205,7 @@ def inter_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : �
 @[simp]
 def inter_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
   (s : σ1 × σ2) (a : α) : Multiset ((σ1 × σ2) × κ) :=
-  Multiset.image₂ combine (M1.step s.1 a) (M2.step s.2 a)
+  combine <$> (M1.step s.1 a ×ˢ M2.step s.2 a)
 
 def inter (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 × σ2) κ where
   step := inter_step M1 M2
@@ -226,73 +228,26 @@ lemma inter_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 lemma inter_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
   (M1 * M2).step = inter_step M1 M2 := rfl
 
-#loogle ∑ _ ∈ Multiset.image _ _, _
-
--- TODO: impossible
-lemma combine_InjOn {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
-    Set.InjOn (Function.uncurry combine) (Multiset.toSet (S1 ×ˢ S2)) := by
-  simp only [Multiset.coe_product, Set.InjOn]
-  rintro ⟨⟨s1, w1⟩, ⟨s2, w2⟩⟩
-  simp
-  rintro hS1 hS2 s1' w1' s2' w2' hS1' hS2' rfl rfl hw
-  sorry
-
--- #loogle ?x * _ = ?x * _
-
-lemma combine_pairwise_eq_zero {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
-  {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
-    (Multiset.toSet (S1 ×ˢ S2)).Pairwise
-    fun i j ↦
-      Function.uncurry combine i = Function.uncurry combine j →
-      (Function.uncurry combine i).2 *
-          (M1.final (Function.uncurry combine i).1.1 * M2.final (Function.uncurry combine i).1.2) =
-        0 := by
-  simp only [Multiset.coe_product]
-  rintro ⟨⟨s1, w1⟩, ⟨s2, w2⟩⟩
-  simp
-  rintro hS1 hS2 s1' w1' s2' w2' hS1' hS2' hneg rfl rfl hw
-  have hw2 := fun hw1 ↦ hneg rfl hw1 rfl
-  clear hneg
-  cases (decEq w1 w1')
-  case isTrue hw1 =>
-    rcases hw1 with rfl
-    specialize hw2 rfl
-    cases (decEq w1 0)
-    case isTrue hw1₀ =>
-      simp [hw1₀]
-    case isFalse hw1₀ =>
-      cases (decEq w2 0)
-      case isTrue hw2₀ =>
-        simp [hw2₀]
-      case isFalse hw2₀ =>
-        exfalso
-        sorry
-  case isFalse hw1 =>
-    sorry
-
-#loogle (∑ _ ∈ _, _) = ∑ _ ∈ _, _
-
-#loogle Multiset.image _ (_ ×ˢ _)
-
-#loogle Multiset.image, Multiset.map
+#loogle Multiset.map _ (Multiset.bind _ _)
 
 lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
-    (M1 * M2).acceptsFrom (Multiset.image₂ combine S1 S2)
+    (M1 * M2).acceptsFrom (combine <$> (S1 ×ˢ S2))
     = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
   funext x
   simp [WeightedLanguage.pointwise_prod]
   induction x
   case nil =>
-    simp [Multiset.sum_mul_sum, ←Multiset.sum_product']
-    simp [←Multiset.image_uncurry_product]
+    simp [←Multiset.sum_map_mul_left, ←Multiset.sum_map_mul_right]
+    simp [Multiset.instSProd, Multiset.product.eq_1]
+    simp [Multiset.map_bind]
     sorry
   case cons a x ih =>
     sorry
 
 theorem accepts_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
     (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
-  simp [accepts, acceptsFrom_inter]
+  simp [accepts, ←acceptsFrom_inter]
 
 end inter
 
@@ -306,8 +261,6 @@ variable {α : Type u} {κ : Type k} {σ : Type v} [W : Semiring κ]
   step s a := {M.step s a}
   start := {M.start}
   final := M.final
-
-variable [DecidableEq σ] [DecidableEq κ]
 
 theorem acceptsFrom_toWNFA (M : WDFA α σ κ) (sw : σ × κ) :
     M.acceptsFrom sw = M.toWNFA.acceptsFrom {sw} := by
