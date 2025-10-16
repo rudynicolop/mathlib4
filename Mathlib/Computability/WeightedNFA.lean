@@ -8,10 +8,7 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Functor
 import Mathlib.Algebra.Module.BigOperators
 import Mathlib.Algebra.BigOperators.Ring.Multiset
--- import Mathlib.Algebra.BigOperators.Group.Finset.Basic
--- import Mathlib.Data.Finset.NAry
--- import Mathlib.Algebra.BigOperators.Ring.Finset
--- import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
+import Mathlib.Data.Finsupp.Basic
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -289,3 +286,41 @@ theorem accepts_toWNFA (M : WDFA α σ κ) : M.accepts = M.toWNFA.accepts := by
   simp [WDFA.accepts, WNFA.accepts, acceptsFrom_toWNFA]
 
 end WDFA
+
+-- `Finsupp` version.
+structure WNFA₂ (α : Type u) (σ : Type v) (κ : Type k) [W : Zero κ] where
+  /-- The NFA's transition function -/
+  step : σ → α → σ →₀ κ
+  /-- Initial weights. -/
+  start : σ →₀ κ
+  /-- Final weights. -/
+  final : σ →₀ κ
+
+namespace WFA₂
+
+variable {α : Type u} {κ : Type k}
+
+section basic
+
+variable {σ : Type v} [W : Semiring κ]
+
+instance : Inhabited (WNFA₂ α σ κ) :=
+  ⟨WNFA₂.mk (fun _ _ ↦ 0) 0 0⟩
+
+variable (M : WNFA₂ α σ κ)
+
+-- #loogle Finsupp _ _ → Finsupp _ _
+
+#check Finsupp.update
+#check Finsupp.embDomain
+#check Finsupp.mapRange
+
+def stepSet (S : (σ →₀ κ)) (a : α) : σ →₀ κ :=
+  -- λ s : σ ↦ M.step s a ?
+  sorry
+  -- S.embDomain (λ s : σ ↦ M.step s a)
+  -- S.bind (fun sw ↦ (Prod.map id (sw.2 * ·)) <$> (M.step sw.1 a))
+
+end basic
+
+end WFA₂
