@@ -228,7 +228,7 @@ lemma inter_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 lemma inter_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
   (M1 * M2).step = inter_step M1 M2 := rfl
 
-#loogle Multiset.map _ (Multiset.bind _ _)
+#check Multiset.map_congr
 
 lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
@@ -238,10 +238,19 @@ lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   simp [WeightedLanguage.pointwise_prod]
   induction x
   case nil =>
+    rw [mul_comm (M1.acceptsFrom S1 [])]
     simp [←Multiset.sum_map_mul_left, ←Multiset.sum_map_mul_right]
     simp [Multiset.instSProd, Multiset.product.eq_1]
     simp [Multiset.map_bind]
-    sorry
+    congr
+    funext ⟨s1, w1⟩
+    congr
+    funext ⟨s2, w2⟩
+    simp
+    simp [←mul_comm (w1 * M1.final s1), mul_assoc]
+    congr 1
+    rw [←mul_assoc (M1.final s1), mul_comm (M1.final s1) w2]
+    simp [mul_assoc]
   case cons a x ih =>
     sorry
 
