@@ -9,6 +9,7 @@ import Mathlib.Data.Multiset.Functor
 import Mathlib.Algebra.Module.BigOperators
 import Mathlib.Algebra.BigOperators.Ring.Multiset
 import Mathlib.Data.Finsupp.Basic
+import Mathlib.Data.Finsupp.Weight
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -18,8 +19,6 @@ TODO
 
 universe u v k
 
--- TODO: should use `Finsupp σ κ` instead:
--- [https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finsupp/Defs.html]
 structure WNFA (α : Type u) (σ : Type v) (κ : Type k) where
   /-- The NFA's transition function -/
   step : σ → α → Multiset (σ × κ)
@@ -307,19 +306,53 @@ variable {σ : Type v} [W : Semiring κ]
 instance : Inhabited (WNFA₂ α σ κ) :=
   ⟨WNFA₂.mk (fun _ _ ↦ 0) 0 0⟩
 
+noncomputable section
+
 variable (M : WNFA₂ α σ κ)
 
--- #loogle Finsupp _ _ → Finsupp _ _
 
-#check Finsupp.update
-#check Finsupp.embDomain
-#check Finsupp.mapRange
+def stepSet (S : σ →₀ κ) (a : α) : σ →₀ κ :=
+  (S.support.val.map (fun s : σ ↦ M.step s a)).sum
 
-def stepSet (S : (σ →₀ κ)) (a : α) : σ →₀ κ :=
-  -- λ s : σ ↦ M.step s a ?
-  sorry
-  -- S.embDomain (λ s : σ ↦ M.step s a)
-  -- S.bind (fun sw ↦ (Prod.map id (sw.2 * ·)) <$> (M.step sw.1 a))
+@[simp]
+theorem stepSet_empty (a : α) : stepSet M 0 a = 0 := by simp [stepSet]
+
+def evalFrom (S : σ →₀ κ) : List α → σ →₀ κ :=
+  List.foldl (stepSet M) S
+
+@[simp]
+theorem evalFrom_nil (S : σ →₀ κ) : evalFrom M S [] = S :=
+  rfl
+
+@[simp]
+theorem evalFrom_singleton (S : σ →₀ κ) (a : α) : evalFrom M S [a] = stepSet M S a :=
+  rfl
+
+@[simp]
+theorem evalFrom_cons (S : σ →₀ κ) (a : α) (x : List α) :
+    evalFrom M S (a :: x) = evalFrom M (stepSet M S a) x :=
+  rfl
+
+@[simp]
+theorem evalFrom_append (S : σ →₀ κ) (x y : List α) :
+    evalFrom M S (x ++ y) = evalFrom M (evalFrom M S x) y := by
+  simp only [evalFrom, List.foldl_append]
+
+def acceptsFrom (S : σ →₀ κ) : WeightedLanguage α κ :=
+  Finsupp.weight M.final ∘ (evalFrom M S)
+
+@[simp]
+theorem acceptsFrom_nil (S : σ →₀ κ) :
+    acceptsFrom M S [] = Finsupp.weight M.final S :=
+  rfl
+
+@[simp]
+theorem acceptsFrom_cons (S : σ →₀ κ) (a : α) (x : List α) :
+    acceptsFrom M S (a :: x) = acceptsFrom M (stepSet M S a) x := rfl
+
+def accepts : WeightedLanguage α κ := acceptsFrom M M.start
+
+end
 
 end basic
 
