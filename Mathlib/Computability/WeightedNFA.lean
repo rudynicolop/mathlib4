@@ -356,4 +356,72 @@ end
 
 end basic
 
+noncomputable section union
+
+variable {σ1 σ2 : Type v} [W : Semiring κ]
+
+@[simp]
+def combine (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 ⊕ σ2 →₀ κ :=
+  S1.embDomain Function.Embedding.inl + S2.embDomain Function.Embedding.inr
+
+@[simp]
+def union_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 ⊕ σ2 →₀ κ :=
+  combine M1.start M2.start
+
+@[simp]
+def union_final (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 ⊕ σ2 →₀ κ :=
+  combine M1.final M2.final
+
+@[simp]
+def union_step (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ)
+  (s : σ1 ⊕ σ2) (a : α) : σ1 ⊕ σ2 →₀ κ :=
+  s.casesOn
+    (fun s1 ↦ (M1.step s1 a).embDomain Function.Embedding.inl)
+    (fun s2 ↦ (M2.step s2 a).embDomain Function.Embedding.inr)
+
+def union (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : WNFA₂ α (σ1 ⊕ σ2) κ where
+  step := union_step M1 M2
+  start := union_start M1 M2
+  final := union_final M1 M2
+
+instance : HAdd (WNFA₂ α σ1 κ) (WNFA₂ α σ2 κ) (WNFA₂ α (σ1 ⊕ σ2) κ) :=
+  ⟨union⟩
+
+lemma union_eq_hadd {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+    M1 + M2 = union M1 M2 := rfl
+
+@[simp]
+lemma union_start_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+    (M1 + M2).start = union_start M1 M2 := rfl
+
+@[simp]
+lemma union_final_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+    (M1 + M2).final = union_final M1 M2 := rfl
+
+@[simp]
+lemma union_step_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+    (M1 + M2).step = union_step M1 M2 := rfl
+
+lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
+    acceptsFrom (M1 + M2) (combine S1 S2) = acceptsFrom M1 S1 + acceptsFrom M2 S2 := by
+  funext x
+  induction x generalizing S1 S2
+  case nil =>
+    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+    simp [Finsupp.weight_apply, Finsupp.sum_embDomain]
+    simp [←Function.Embedding.inl_apply, ←Function.Embedding.inr_apply]
+    simp [Finsupp.embDomain_notin_range]
+  case cons a x ih =>
+    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def] at *
+    simp [←ih]
+    clear ih
+    congr 1
+    sorry
+
+lemma accepts_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+    accepts (M1 + M2) = accepts M1 + accepts M2 := by
+  simp [accepts, ←acceptsFrom_union]
+
+end union
+
 end WFA₂
