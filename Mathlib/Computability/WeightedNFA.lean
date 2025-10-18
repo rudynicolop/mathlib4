@@ -402,6 +402,10 @@ lemma union_final_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
 lemma union_step_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
     (M1 + M2).step = union_step M1 M2 := rfl
 
+#loogle Finsupp.embDomain, ∑ _ ∈ _, _
+
+variable [DecidableEq σ1] [DecidableEq σ2]
+
 lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
     acceptsFrom (M1 + M2) (combine S1 S2) = acceptsFrom M1 S1 + acceptsFrom M2 S2 := by
   funext x
@@ -416,7 +420,12 @@ lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
     simp [←ih]
     clear ih
     congr 1
-    sorry
+    simp [stepSet]
+    rw [Finsupp.support_add_eq]
+    · simp [Finsupp.support_embDomain]
+      simp [Finset.sum_union sorry]
+      sorry
+    · sorry
 
 lemma accepts_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
     accepts (M1 + M2) = accepts M1 + accepts M2 := by
