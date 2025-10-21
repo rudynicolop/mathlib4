@@ -455,9 +455,7 @@ def combineProd (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) (s : σ1 × σ2) : κ 
 lemma combineProd_mem (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) (s : σ1 × σ2) :
     combineProd S1 S2 s ≠ 0 →
     s ∈ S1.support ×ˢ S2.support := by
-  simp
-  intros hprod
-  constructor <;> intro h <;> simp [h] at hprod
+  simp; intros hprod; constructor <;> intro h <;> simp [h] at hprod
 
 @[simp]
 def combineProd₀ (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 × σ2 →₀ κ :=
@@ -465,6 +463,18 @@ def combineProd₀ (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 × σ2 →₀
     (S1.support ×ˢ S2.support)
     (combineProd S1 S2)
     (combineProd_mem S1 S2)
+
+@[simp]
+lemma combineProd₀_support (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) :
+    (combineProd₀ S1 S2).support = S1.support ×ˢ S2.support := by
+  simp
+  ext ⟨s1, s2⟩
+  simp
+  constructor
+  · intros hprod; constructor <;> intro h <;> simp [h] at hprod
+  · rintro ⟨h1, h2⟩ h
+    -- why?
+    sorry
 
 @[simp]
 def inter_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
@@ -506,12 +516,26 @@ lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
   simp [WeightedLanguage.pointwise_prod]
   induction x generalizing S1 S2
   case nil =>
-    sorry
+    simp [Finsupp.weight_apply, Finsupp.onFinset_sum]
+    simp [Finset.sum_product, Finsupp.sum.eq_1, Finset.sum_mul_sum]
+    congr; funext s1
+    congr; funext s2
+    rw [mul_assoc (S1 s1) (M1.final s1), ←mul_assoc (M1.final s1), mul_comm (M1.final s1) (S2 s2)]
+    simp [mul_assoc]
   case cons a x ih =>
-    simp [←ih]
-    clear ih
+    simp [←ih]; clear ih
     simp [stepSet]
-    sorry
+    congr; apply Finsupp.ext_iff.mpr; rintro ⟨s1', s2'⟩
+    have h := combineProd₀_support S1 S2
+    simp at h
+    simp [h]; clear h
+    simp [Finset.sum_product, Finset.sum_mul_sum]
+    congr; funext s1
+    congr; funext s2
+    rw [mul_assoc (S1 s1) ((M1.step s1 a) s1'),
+        ←mul_assoc ((M1.step s1 a) s1') (S2 s2),
+        mul_comm ((M1.step s1 a) s1') (S2 s2)]
+    simp [mul_assoc]
 
 theorem accepts_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
     accepts (M1 * M2) = (accepts M1).pointwise_prod (accepts M2) := by
