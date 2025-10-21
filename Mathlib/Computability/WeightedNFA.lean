@@ -363,10 +363,10 @@ noncomputable section union
 variable {σ1 σ2 : Type v} [W : Semiring κ]
 
 @[simp]
-def combine (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 ⊕ σ2 →₀ κ :=
+def combineSum (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 ⊕ σ2 →₀ κ :=
   S1.embDomain Function.Embedding.inl + S2.embDomain Function.Embedding.inr
 
-lemma combine_disjoint {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
+lemma combineSum_disjoint {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
     Disjoint
       (Finset.map Function.Embedding.inl S1.support)
       (Finset.map Function.Embedding.inr S2.support) := by
@@ -374,11 +374,11 @@ lemma combine_disjoint {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
 
 @[simp]
 def union_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 ⊕ σ2 →₀ κ :=
-  combine M1.start M2.start
+  combineSum M1.start M2.start
 
 @[simp]
 def union_final (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 ⊕ σ2 →₀ κ :=
-  combine M1.final M2.final
+  combineSum M1.final M2.final
 
 @[simp]
 def union_step (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ)
@@ -413,7 +413,7 @@ lemma union_step_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
 variable [DecidableEq σ1] [DecidableEq σ2]
 
 lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
-    acceptsFrom (M1 + M2) (combine S1 S2) = acceptsFrom M1 S1 + acceptsFrom M2 S2 := by
+    acceptsFrom (M1 + M2) (combineSum S1 S2) = acceptsFrom M1 S1 + acceptsFrom M2 S2 := by
   funext x
   induction x generalizing S1 S2
   case nil =>
@@ -427,8 +427,8 @@ lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
     clear ih
     congr 1
     simp [stepSet]
-    rw [Finsupp.support_add_eq combine_disjoint]
-    simp [Finsupp.support_embDomain, Finset.sum_union combine_disjoint]
+    rw [Finsupp.support_add_eq combineSum_disjoint]
+    simp [Finsupp.support_embDomain, Finset.sum_union combineSum_disjoint]
     simp [←Function.Embedding.inl_apply, ←Function.Embedding.inr_apply]
     simp [Finsupp.embDomain_notin_range]
     simp [←Finsupp.embDomain_mapRange]
@@ -444,5 +444,79 @@ lemma accepts_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
   simp [accepts, ←acceptsFrom_union]
 
 end union
+
+noncomputable section inter
+
+variable {σ1 σ2 : Type v} [W : CommSemiring κ]
+
+@[simp]
+def combineProd (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) (s : σ1 × σ2) : κ := S1 s.1 * S2 s.2
+
+lemma combineProd_mem (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) (s : σ1 × σ2) :
+    combineProd S1 S2 s ≠ 0 →
+    s ∈ S1.support ×ˢ S2.support := by
+  simp
+  intros hprod
+  constructor <;> intro h <;> simp [h] at hprod
+
+@[simp]
+def combineProd₀ (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 × σ2 →₀ κ :=
+  Finsupp.onFinset
+    (S1.support ×ˢ S2.support)
+    (combineProd S1 S2)
+    (combineProd_mem S1 S2)
+
+@[simp]
+def inter_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
+  combineProd₀ M1.start M2.start
+
+@[simp]
+def inter_final (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
+  combineProd₀ M1.final M2.final
+
+@[simp]
+def inter_step (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) (s : σ1 × σ2) (a : α) : σ1 × σ2 →₀ κ :=
+  combineProd₀ (M1.step s.1 a) (M2.step s.2 a)
+
+def inter (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : WNFA₂ α (σ1 × σ2) κ where
+  step := inter_step M1 M2
+  start := inter_start M1 M2
+  final := inter_final M1 M2
+
+instance : HMul (WNFA₂ α σ1 κ) (WNFA₂ α σ2 κ) (WNFA₂ α (σ1 × σ2) κ) := ⟨inter⟩
+
+lemma inter_eq_hmul {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} : M1 * M2 = inter M1 M2 := rfl
+
+@[simp]
+lemma inter_start_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+  (M1 * M2).start = inter_start M1 M2 := rfl
+
+@[simp]
+lemma inter_final_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+  (M1 * M2).final = inter_final M1 M2 := rfl
+
+@[simp]
+lemma inter_step_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+  (M1 * M2).step = inter_step M1 M2 := rfl
+
+lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
+    (acceptsFrom (M1 * M2)) (combineProd₀ S1 S2)
+    = (acceptsFrom M1 S1).pointwise_prod (acceptsFrom M2 S2) := by
+  funext x
+  simp [WeightedLanguage.pointwise_prod]
+  induction x generalizing S1 S2
+  case nil =>
+    sorry
+  case cons a x ih =>
+    simp [←ih]
+    clear ih
+    simp [stepSet]
+    sorry
+
+theorem accepts_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
+    accepts (M1 * M2) = (accepts M1).pointwise_prod (accepts M2) := by
+  simp [accepts, ←acceptsFrom_inter]
+
+end inter
 
 end WFA₂
