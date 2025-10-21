@@ -306,13 +306,15 @@ variable {σ : Type v} [W : Semiring κ]
 instance : Inhabited (WNFA₂ α σ κ) :=
   ⟨WNFA₂.mk (fun _ _ ↦ 0) 0 0⟩
 
-noncomputable section
+noncomputable section stepSet
 
 variable (M : WNFA₂ α σ κ)
 
-
 def stepSet (S : σ →₀ κ) (a : α) : σ →₀ κ :=
-  (S.support.val.map (fun s : σ ↦ M.step s a)).sum
+  (S.support.val.map
+    (fun s : σ ↦
+      Finsupp.mapRange (S s * ·) (W.mul_zero (S s)) (M.step s a))
+   ).sum
 
 @[simp]
 theorem stepSet_empty (a : α) : stepSet M 0 a = 0 := by simp [stepSet]
@@ -352,7 +354,7 @@ theorem acceptsFrom_cons (S : σ →₀ κ) (a : α) (x : List α) :
 
 def accepts : WeightedLanguage α κ := acceptsFrom M M.start
 
-end
+end stepSet
 
 end basic
 
@@ -363,6 +365,12 @@ variable {σ1 σ2 : Type v} [W : Semiring κ]
 @[simp]
 def combine (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 ⊕ σ2 →₀ κ :=
   S1.embDomain Function.Embedding.inl + S2.embDomain Function.Embedding.inr
+
+lemma combine_disjoint {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
+    Disjoint
+      (Finset.map Function.Embedding.inl S1.support)
+      (Finset.map Function.Embedding.inr S2.support) := by
+    simp [Finset.disjoint_map_inl_map_inr]
 
 @[simp]
 def union_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 ⊕ σ2 →₀ κ :=
@@ -402,8 +410,6 @@ lemma union_final_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
 lemma union_step_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
     (M1 + M2).step = union_step M1 M2 := rfl
 
-#loogle Finsupp.embDomain, ∑ _ ∈ _, _
-
 variable [DecidableEq σ1] [DecidableEq σ2]
 
 lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
@@ -421,11 +427,17 @@ lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
     clear ih
     congr 1
     simp [stepSet]
-    rw [Finsupp.support_add_eq]
-    · simp [Finsupp.support_embDomain]
-      simp [Finset.sum_union sorry]
-      sorry
-    · sorry
+    rw [Finsupp.support_add_eq combine_disjoint]
+    simp [Finsupp.support_embDomain, Finset.sum_union combine_disjoint]
+    simp [←Function.Embedding.inl_apply, ←Function.Embedding.inr_apply]
+    simp [Finsupp.embDomain_notin_range]
+    simp [←Finsupp.embDomain_mapRange]
+    apply Finsupp.ext_iff.mpr
+    rintro (s1 | s2)
+    · simp [←Function.Embedding.inl_apply]
+      simp [Finsupp.embDomain_notin_range]
+    · simp [←Function.Embedding.inr_apply]
+      simp [Finsupp.embDomain_notin_range]
 
 lemma accepts_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
     accepts (M1 + M2) = accepts M1 + accepts M2 := by
