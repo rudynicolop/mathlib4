@@ -10,6 +10,7 @@ import Mathlib.Algebra.Module.BigOperators
 import Mathlib.Algebra.BigOperators.Ring.Multiset
 import Mathlib.Data.Finsupp.Basic
 import Mathlib.Data.Finsupp.Weight
+import Mathlib.Data.Finsupp.Notation
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -449,7 +450,7 @@ noncomputable section inter
 
 variable {σ1 σ2 : Type v} [W : CommSemiring κ]
 
--- This is unfortunate
+-- This is unfortunate.
 variable [NoZeroDivisors κ]
 
 @[simp]
@@ -540,5 +541,17 @@ theorem accepts_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
   simp [accepts, ←acceptsFrom_inter]
 
 end inter
+
+noncomputable section reverse
+
+variable {σ : Type v} [W : CommSemiring κ]
+
+@[simp]
+def reverse_step (M : WNFA₂ α σ κ) (s' : σ) (a : α) : σ →₀ κ :=
+  Finsupp.ofSupportFinite
+    (fun s ↦ M.step s a s')
+    sorry
+
+end reverse
 
 end WFA₂
