@@ -449,13 +449,16 @@ noncomputable section inter
 
 variable {σ1 σ2 : Type v} [W : CommSemiring κ]
 
+-- This is unfortunate
+variable [NoZeroDivisors κ]
+
 @[simp]
 def combineProd (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) (s : σ1 × σ2) : κ := S1 s.1 * S2 s.2
 
 lemma combineProd_mem (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) (s : σ1 × σ2) :
     combineProd S1 S2 s ≠ 0 →
     s ∈ S1.support ×ˢ S2.support := by
-  simp; intros hprod; constructor <;> intro h <;> simp [h] at hprod
+  simp
 
 @[simp]
 def combineProd₀ (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) : σ1 × σ2 →₀ κ :=
@@ -470,11 +473,6 @@ lemma combineProd₀_support (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) :
   simp
   ext ⟨s1, s2⟩
   simp
-  constructor
-  · intros hprod; constructor <;> intro h <;> simp [h] at hprod
-  · rintro ⟨h1, h2⟩ h
-    -- why?
-    sorry
 
 @[simp]
 def inter_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
