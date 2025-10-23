@@ -426,52 +426,7 @@ lemma concat_acceptsFrom_inr {S2 : Set σ2} :
     simp [←ih]; clear ih
     simp [←Set.fmap_eq_image, concat_stepSet_inr]
 
-lemma concat_acceptsFrom' {S1 : Set σ1} :
-    (M1 * M2).acceptsFrom (Sum.inl <$> S1) = M1.acceptsFrom S1 * M2.accepts := by
-  ext z
-  simp [Language.mul_def]
-  rw [Set.mem_image2]
-  constructor
-  · sorry
-  · rintro ⟨x, hx, y, hy, rfl⟩
-    simp
-    induction x generalizing S1
-    case nil =>
-      simp
-      rw [mem_acceptsFrom_nil] at hx
-      rcases hx with ⟨s1, hs1, haccept1⟩
-      cases y
-      case nil => simp; tauto
-      case cons a y =>
-        simp
-        simp [accepts_acceptsFrom] at hy
-        rw [mem_acceptsFrom_cons] at hy
-        simp [stepSet, mem_acceptsFrom_biUnion] at *
-        rcases hy with ⟨s2, hs2, hy⟩
-        simp [acceptsFrom_union]
-        exists s1
-        constructor
-        { assumption }
-        simp [max, SemilatticeSup.sup]
-        right
-        simp [←Set.fmap_eq_image, concat_acceptsFrom_inr]
-        rw [mem_acceptsFrom_biUnion]
-        simp
-        exists s2
-        rw [mem_acceptsFrom_setOf_fact]
-        tauto
-    case cons a x ih =>
-      rw [mem_acceptsFrom_cons] at hx
-      simp [stepSet] at *
-      simp [mem_acceptsFrom_biUnion] at *
-      rcases hx with ⟨s1', hs1', hx⟩
-      exists s1'
-      constructor
-      { assumption }
-      rw [evalFrom_union, acceptsFrom_union, Language.add_def, Set.mem_union]
-      left
-      apply ih
-      assumption
+attribute [local instance] Set.monad
 
 theorem concat_acceptsFrom {S1 : Set σ1} :
     (M1 * M2).acceptsFrom (Sum.inl <$> S1) +
@@ -481,7 +436,35 @@ theorem concat_acceptsFrom {S1 : Set σ1} :
   rw [Language.add_def, Language.mul_def, Set.mem_image2, Set.mem_union]
   constructor
   · rintro (hz | hz)
-    · sorry
+    · induction z generalizing S1
+      case nil =>
+        simp [accepts_acceptsFrom] at *
+        rw [mem_acceptsFrom_nil] at *
+        simp [accepts_acceptsFrom] at *
+        rw [mem_acceptsFrom_nil] at *
+        tauto
+      case cons a z ih =>
+        rw [mem_acceptsFrom_cons] at *
+        simp [stepSet, mem_acceptsFrom_biUnion, acceptsFrom_union, max, SemilatticeSup.sup] at *
+        rcases hz with ⟨s1, hs1, hz | hz⟩
+        · rcases ih hz with ⟨x, hx, y, hy, rfl⟩
+          exists (a :: x)
+          rw [mem_acceptsFrom_cons]
+          simp [stepSet, mem_acceptsFrom_biUnion]
+          tauto
+        · rw [←Set.fmap_eq_image, ←Set.bind_def, map_bind] at hz
+          rw [Set.bind_def, mem_acceptsFrom_biUnion] at hz
+          simp at hz
+          simp [←Set.fmap_eq_image, concat_acceptsFrom_inr] at hz
+          rcases hz with ⟨s2, hstart2, hz⟩
+          rw [mem_acceptsFrom_setOf_fact] at hz
+          rcases hz with ⟨hz, haccept1⟩
+          exists []
+          rw [mem_acceptsFrom_nil]
+          simp [accepts_acceptsFrom]
+          rw [mem_acceptsFrom_cons]
+          simp [stepSet, mem_acceptsFrom_biUnion]
+          tauto
     · rw [mem_acceptsFrom_setOf_fact] at hz; tauto
   · rintro ⟨x, hx, y, hy, rfl⟩
     left
