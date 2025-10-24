@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2020 Fox Thomson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Fox Thomson, Maja Kądziołka
+Authors: Fox Thomson, Maja Kądziołka, Rudy Peterson
 -/
 import Mathlib.Computability.DFA
 import Mathlib.Data.Fintype.Powerset
@@ -477,5 +477,12 @@ protected theorem IsRegular.of_reverse {L : Language α} (h : L.reverse.IsRegula
 @[simp]
 theorem isRegular_reverse_iff {L : Language α} : L.reverse.IsRegular ↔ L.IsRegular :=
   ⟨.of_reverse, .reverse⟩
+
+/-- Regular languages are closed under concatenation. -/
+theorem IsRegular.concat {L1 L2 : Language α}
+  (h1 : L1.IsRegular) (h2 : L2.IsRegular) : (L1 * L2).IsRegular :=
+  have ⟨σ1, _, M1, hM1⟩ := h1
+  have ⟨σ2, _, M2, hM2⟩ := h2
+  ⟨_, inferInstance, (M1.toNFA * M2.toNFA).toDFA, by simp [NFA.concat_accepts, hM1, hM2]⟩
 
 end Language
