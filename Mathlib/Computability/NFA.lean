@@ -421,8 +421,7 @@ lemma concat_acceptsFrom_inr {S2 : Set σ2} :
   case cons a y ih => simp [←ih, concat_stepSet_inr]
 
 theorem concat_acceptsFrom {S1 : Set σ1} :
-    (M1 * M2).acceptsFrom (Sum.inl '' S1)
-    = M1.acceptsFrom S1 * M2.accepts := by
+    (M1 * M2).acceptsFrom (Sum.inl '' S1) = M1.acceptsFrom S1 * M2.accepts := by
   ext z
   rw [Language.mul_def, Set.mem_image2]
   induction z generalizing S1
