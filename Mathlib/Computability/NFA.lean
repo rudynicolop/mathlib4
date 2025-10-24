@@ -370,12 +370,11 @@ namespace NFA
 variable {σ1 σ2 : Type v} (M1 : NFA α σ1) (M2 : NFA α σ2)
 
 @[simp]
-def concat_start : Set (σ1 ⊕ σ2) :=
-  Sum.inl <$> M1.start
+def concat_start : Set (σ1 ⊕ σ2) := Sum.inl '' M1.start
 
 @[simp]
 def concat_accept : Set (σ1 ⊕ σ2) :=
-  Sum.inl <$> { s1 ∈ M1.accept | [] ∈ M2.accepts } ∪ Sum.inr <$> M2.accept
+  Sum.inl '' { s1 ∈ M1.accept | [] ∈ M2.accepts } ∪ Sum.inr '' M2.accept
 
 /- Set of states available in `M2` reachable from an initial state in `M2.start` after a transition
 using `a`. -/
@@ -387,8 +386,8 @@ state in `M2.start` via character `a`.
 def concat_step (s : σ1 ⊕ σ2) (a : α) : Set (σ1 ⊕ σ2) :=
   s.casesOn
     (fun s1 ↦
-      Sum.inl <$> M1.step s1 a ∪
-      Sum.inr <$> ⋃ s2 ∈ M2.start, {s2' ∈ M2.step s2 a | s1 ∈ M1.accept })
+      Sum.inl '' M1.step s1 a ∪
+      Sum.inr '' ⋃ s2 ∈ M2.start, { s2' ∈ M2.step s2 a | s1 ∈ M1.accept })
     (fun s2 ↦ Sum.inr <$> M2.step s2 a)
 
 def concat : NFA α (σ1 ⊕ σ2) where
@@ -411,90 +410,58 @@ lemma hmul_accept : (M1 * M2).accept = concat_accept M1 M2 := rfl
 lemma hmul_step : (M1 * M2).step = concat_step M1 M2 := rfl
 
 lemma concat_stepSet_inr {S2 : Set σ2} {a : α} :
-    (M1 * M2).stepSet (Sum.inr <$> S2) a = Sum.inr <$> M2.stepSet S2 a := by
+    (M1 * M2).stepSet (Sum.inr '' S2) a = Sum.inr '' M2.stepSet S2 a := by
   ext (s1 | s2) <;> simp [stepSet]
 
 lemma concat_acceptsFrom_inr {S2 : Set σ2} :
-    (M1 * M2).acceptsFrom (Sum.inr <$> S2) = M2.acceptsFrom S2 := by
+    (M1 * M2).acceptsFrom (Sum.inr '' S2) = M2.acceptsFrom S2 := by
   ext y
   induction y generalizing S2
   case nil => simp
-  case cons a y ih =>
-    simp [←ih]; clear ih
-    simp [←Set.fmap_eq_image, concat_stepSet_inr]
-
-attribute [local instance] Set.monad
+  case cons a y ih => simp [←ih, concat_stepSet_inr]
 
 theorem concat_acceptsFrom {S1 : Set σ1} :
-    (M1 * M2).acceptsFrom (Sum.inl <$> S1)
+    (M1 * M2).acceptsFrom (Sum.inl '' S1)
     = M1.acceptsFrom S1 * M2.accepts := by
   ext z
   rw [Language.mul_def, Set.mem_image2]
-  constructor
-  · intro hz
-    induction z generalizing S1
-    case nil =>
-      simp [accepts_acceptsFrom] at *
-      simp_rw [↑mem_acceptsFrom_nil] at *
-      tauto
-    case cons a z ih =>
-      simp [mem_acceptsFrom_cons, stepSet, mem_acceptsFrom_biUnion, acceptsFrom_union, max,
-            SemilatticeSup.sup] at *
-      rcases hz with ⟨s1, hs1, hz | hz⟩
-      · rcases ih hz with ⟨x, hx, y, hy, rfl⟩
-        exists (a :: x)
-        simp_rw [↑mem_acceptsFrom_cons, stepSet, mem_acceptsFrom_biUnion]
-        simp; tauto
-      · rw [←Set.fmap_eq_image, ←Set.bind_def, map_bind] at hz
-        rw [Set.bind_def, mem_acceptsFrom_biUnion] at hz
-        simp at hz
-        simp [←Set.fmap_eq_image, concat_acceptsFrom_inr] at hz
-        rcases hz with ⟨s2, hstart2, hz⟩
-        rw [mem_acceptsFrom_setOf_fact] at hz
-        rcases hz with ⟨hz, haccept1⟩
-        exists []; simp
-        simp_rw [accepts_acceptsFrom, ↑mem_acceptsFrom_nil, ↑mem_acceptsFrom_cons]
-        simp [stepSet, mem_acceptsFrom_biUnion]
-        tauto
-  · rintro ⟨x, hx, y, hy, rfl⟩
+  induction z generalizing S1
+  case nil =>
+    simp; rw [mem_acceptsFrom_nil]; tauto
+  case cons a z ih =>
+    simp [stepSet, mem_acceptsFrom_biUnion, acceptsFrom_union, max, SemilatticeSup.sup]
+    simp [ih, concat_acceptsFrom_inr]; clear ih
+    simp_rw [↑mem_acceptsFrom_biUnion]
     simp
-    induction x generalizing S1
-    case nil =>
-      simp
-      rw [mem_acceptsFrom_nil] at hx
-      rcases hx with ⟨s1, hs1, haccept1⟩
-      cases y
+    simp_rw [↑mem_acceptsFrom_setOf_fact]
+    constructor
+    · rintro ⟨s1, hs1, ⟨x, hx, y, hy, rfl⟩ | ⟨s2, hstart2, hz, haccept1⟩⟩
+      · exists (a :: x); rw [mem_acceptsFrom_cons]
+        simp [stepSet, mem_acceptsFrom_biUnion]; tauto
+      · exists []; rw [mem_acceptsFrom_nil]
+        simp [accepts_acceptsFrom]; rw [mem_acceptsFrom_cons]
+        simp [stepSet, mem_acceptsFrom_biUnion]; tauto
+    · rintro ⟨x, hx, y, hy, heq⟩
+      cases x
       case nil =>
-        rw [mem_acceptsFrom_nil]; simp; tauto
-      case cons a y =>
-        simp_rw [accepts_acceptsFrom, ↑mem_acceptsFrom_cons] at *
-        simp [stepSet, mem_acceptsFrom_biUnion] at *
-        rcases hy with ⟨s2, hs2, hy⟩
-        simp [acceptsFrom_union]
+        rw [mem_acceptsFrom_nil] at hx
+        obtain ⟨s1, hs1, haccept1⟩ := hx
+        exists s1
+        simp at heq; subst y
+        rw [accepts_acceptsFrom, mem_acceptsFrom_cons] at hy
+        simp [stepSet, mem_acceptsFrom_biUnion] at hy
+        tauto
+      case cons b x =>
+        obtain ⟨rfl, rfl⟩ := heq
+        rw [mem_acceptsFrom_cons] at hx
+        simp [stepSet, mem_acceptsFrom_biUnion] at hx
+        obtain ⟨s1, hs1, hx⟩ := hx
         exists s1
         constructor; next => assumption
-        simp [max, SemilatticeSup.sup, ←Set.fmap_eq_image, concat_acceptsFrom_inr]
-        right
-        rw [mem_acceptsFrom_biUnion]; simp
-        exists s2
-        constructor; next => assumption
-        rw [mem_acceptsFrom_setOf_fact]
-        tauto
-    case cons a x ih =>
-      simp
-      rw [mem_acceptsFrom_cons] at *
-      simp [stepSet, mem_acceptsFrom_biUnion] at *
-      rcases hx with ⟨s1', hs1', hx⟩
-      exists s1'
-      constructor; next => assumption
-      rw [evalFrom_union, acceptsFrom_union, Language.add_def, Set.mem_union]
-      left
-      apply ih
-      assumption
+        left; tauto
 
 theorem concat_accepts : (M1 * M2).accepts = M1.accepts * M2.accepts := by
-  rw [accepts_acceptsFrom (M:=M1 * M2), hmul_start, concat_start, concat_acceptsFrom]
-  rfl
+  simp [concat_acceptsFrom, accepts_acceptsFrom]
 
 end NFA
 
