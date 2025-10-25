@@ -367,33 +367,57 @@ end NFA
 
 namespace NFA
 
+/-!
+### Declarations about `NFA.concat`
+
+We provide a direct construction of concatenated NFAs without ε-transitions: if `M1` accepts
+language `L1` and `M2` accepts language `L2` then `M1 * M2` (`M1.concat M2`) accepts language
+`L1 * L2`. In order to construct `M1 * M2`, we must create transitions from accepting states in `M1`
+to states immediatately reachable after a single transition from states in `M2.start`. Furthermore,
+we must include states of `M1.accept` in `(M1 * M2).accept` if `[] ∈ M2.accepts`.
+
+Traditionally, concatenation is constructed for `εNFA`, not plain `NFA`, by adding ε-transitions
+from states in `M1.accept` to `M2.start`. Since `NFA` does not include ε-transitions, we must
+include the aforementioned transitions for `NFA.concatStep`:
+`⋃ s2 ∈ M2.start, { s2' ∈ M2.step s2 a | s1 ∈ M1.accept }`.
+
+This construction for unweighted `NFA` provides insight into the weighted case, where the weighted
+analogue for `NFA` is different from the weighted analogue for `εNFA`.
+-/
+
 variable {σ1 σ2 : Type v} (M1 : NFA α σ1) (M2 : NFA α σ2)
 
+/- `M1.concatStart` is `(M1 * M2).start`, merely including `M1.start`. -/
 @[simp]
-def concat_start : Set (σ1 ⊕ σ2) := Sum.inl '' M1.start
+def concatStart : Set (σ1 ⊕ σ2) := Sum.inl '' M1.start
 
+/- `concatAccept M1 M2` is `(M1 * M2).accept`, including `M2.accepts`, and if `[] ∈ M2.accepts` then
+` also `M1.accepts`. If [] ∈ M2.accepts`, then without including `M1.accepts`, a final state in
+`M2.accept` is unreachable in `M1 * M2`. -/
 @[simp]
-def concat_accept : Set (σ1 ⊕ σ2) :=
+def concatAccept : Set (σ1 ⊕ σ2) :=
   Sum.inl '' { s1 ∈ M1.accept | [] ∈ M2.accepts } ∪ Sum.inr '' M2.accept
 
-/- Set of states available in `M2` reachable from an initial state in `M2.start` after a transition
-using `a`. -/
-/- For every state `s1` from `M1`, we compute both `M1`'s transitions from `s1`,
-and if `s1 ∈ M1.accept` then we compute transitions in `M2` such that these transitions go from a
-state in `M2.start` via character `a`.
--/
+/- `concatStep M1 M2 s a` is `(M1 * M2).step s a`, the set of states available in `M1 * M2` by a
+transition from state `s` via character `a`. We include all transitions from `M1.step` and
+`M2.step`. In order to "concatenate" `M1` and `M2`, for `(M1 * M2).step (inl s1) a` when
+`s1 ∈ M1.accept`, we must also include states reachable from a state in `M2.start` via `a`,
+`⋃ s2 ∈ M2.start, M2.step s2 a`. -/
 @[simp]
-def concat_step (s : σ1 ⊕ σ2) (a : α) : Set (σ1 ⊕ σ2) :=
-  s.casesOn
-    (fun s1 ↦
-      Sum.inl '' M1.step s1 a ∪
-      Sum.inr '' ⋃ s2 ∈ M2.start, { s2' ∈ M2.step s2 a | s1 ∈ M1.accept })
-    (fun s2 ↦ Sum.inr <$> M2.step s2 a)
+def concatStep : σ1 ⊕ σ2 → α → Set (σ1 ⊕ σ2)
+| .inl s1, a =>
+  Sum.inl '' M1.step s1 a ∪ Sum.inr '' ⋃ s2 ∈ M2.start, { s2' ∈ M2.step s2 a | s1 ∈ M1.accept }
+| .inr s2, a =>
+  Sum.inr '' M2.step s2 a
 
+/- `M1.concat M2` is `M1 * M2`, the concatenation of `M1` and `M2` achieved without ε-transitions.
+We decline to attatch a `@[simp]` nor `@[simps]` attribute in order to avoid unfolding the entire
+construction, and instead prefer the `M1 * M2` notation, and only simplify the projections for
+`M1 * M2`. -/
 def concat : NFA α (σ1 ⊕ σ2) where
-  step := concat_step M1 M2
-  start := concat_start M1
-  accept := concat_accept M1 M2
+  step := concatStep M1 M2
+  start := concatStart M1
+  accept := concatAccept M1 M2
 
 instance : HMul (NFA α σ1) (NFA α σ2) (NFA α (σ1 ⊕ σ2)) :=
   ⟨concat⟩
@@ -401,13 +425,13 @@ instance : HMul (NFA α σ1) (NFA α σ2) (NFA α (σ1 ⊕ σ2)) :=
 lemma hmul_eq_conat : M1 * M2 = concat M1 M2 := rfl
 
 @[simp]
-lemma hmul_start : (M1 * M2).start = concat_start M1 := rfl
+lemma hmul_concatStart : (M1 * M2).start = concatStart M1 := rfl
 
 @[simp]
-lemma hmul_accept : (M1 * M2).accept = concat_accept M1 M2 := rfl
+lemma hmul_concatAccept : (M1 * M2).accept = concatAccept M1 M2 := rfl
 
 @[simp]
-lemma hmul_step : (M1 * M2).step = concat_step M1 M2 := rfl
+lemma hmul_concatStep : (M1 * M2).step = concatStep M1 M2 := rfl
 
 lemma concat_stepSet_inr {S2 : Set σ2} {a : α} :
     (M1 * M2).stepSet (Sum.inr '' S2) a = Sum.inr '' M2.stepSet S2 a := by
@@ -459,6 +483,8 @@ theorem concat_acceptsFrom {S1 : Set σ1} :
         constructor; next => assumption
         left; tauto
 
+/- If `M1` accepts language `L1` and `M2` accepts language `L2`, then the language `L` of `M1 * M2`
+(`M1.concat M2`) is exactly equal to `L = L1 * L2`. -/
 theorem concat_accepts : (M1 * M2).accepts = M1.accepts * M2.accepts := by
   simp [concat_acceptsFrom, accepts_acceptsFrom]
 
