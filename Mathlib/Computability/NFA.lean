@@ -5,7 +5,6 @@ Authors: Fox Thomson, Maja Kądziołka, Chris Wong, Rudy Peterson
 -/
 import Mathlib.Computability.DFA
 import Mathlib.Data.Fintype.Powerset
-import Mathlib.Data.Set.Functor
 
 /-!
 # Nondeterministic Finite Automata
