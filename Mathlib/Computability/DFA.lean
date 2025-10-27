@@ -74,6 +74,11 @@ theorem evalFrom_nil (s : σ) : M.evalFrom s [] = s :=
   rfl
 
 @[simp]
+theorem evalFrom_cons (s : σ) (a : α) (x : List α) :
+    M.evalFrom s (a :: x) = M.evalFrom (M.step s a) x :=
+  rfl
+
+@[simp]
 theorem evalFrom_singleton (s : σ) (a : α) : M.evalFrom s [a] = M.step s a :=
   rfl
 
@@ -109,6 +114,15 @@ def acceptsFrom (s : σ) : Language α := {x | M.evalFrom s x ∈ M.accept}
 
 theorem mem_acceptsFrom {s : σ} {x : List α} :
     x ∈ M.acceptsFrom s ↔ M.evalFrom s x ∈ M.accept := by rfl
+
+@[simp]
+theorem mem_acceptsFrom_nil {s : σ} : [] ∈ M.acceptsFrom s ↔ s ∈ M.accept := by
+  simp [mem_acceptsFrom]
+
+@[simp]
+theorem mem_acceptsFrom_cons {s : σ} {a : α} {x : List α} :
+    a :: x ∈ M.acceptsFrom s ↔ x ∈ M.acceptsFrom (M.step s a) := by
+  simp [mem_acceptsFrom]
 
 /-- `M.accepts` is the language of `x` such that `M.eval x` is an accept state. -/
 def accepts : Language α := M.acceptsFrom M.start

@@ -166,9 +166,6 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 theorem weight_accepts (x : List α) : M.accepts x = M.evalWeight x :=
   rfl
 
--- TODO: fix final states
-def ofDFA (M : DFA α σ) : WDFA α σ κ :=
-  ⟨(fun s a ↦ (M.step s a, 1)), (M.start, 1), (fun s ↦ 0)⟩
 end basic
 
 section inter
@@ -251,3 +248,38 @@ def toDFA (M : WDFA α σ Bool) : DFA α σ :=
 end boolean
 
 end WDFA
+
+namespace DFA
+
+variable {α : Type u} {κ : Type k} {σ : Type v} (M : DFA α σ) [W : Semiring κ]
+
+/- We need to assume that the set of final states is finite. -/
+variable [Fintype M.accept] [DecidableEq σ]
+attribute [local instance] Set.decidableMemOfFintype
+
+@[simp]
+def toWDFAStart : σ × κ := (M.start, 1)
+
+@[simp]
+def toWDFAFinal (s : σ) : κ :=
+  if s ∈ M.accept then 1 else 0
+
+@[simp]
+def toWDFAStep (s : σ) (a : α) : σ × κ := (M.step s a, 1)
+
+@[simps]
+def toWDFA : WDFA α σ κ where
+  step := M.toWDFAStep
+  start := M.toWDFAStart
+  final := M.toWDFAFinal
+
+lemma toWDFA_acceptsFrom {x : List α} {s : σ} {w : κ} (hw₀ : w ≠ 0) :
+    M.toWDFA.acceptsFrom (s, w) x = w ↔ x ∈ M.acceptsFrom s := by
+  induction x generalizing s w
+  case nil => simp; tauto
+  case cons a x ih => simp [ih hw₀]
+
+lemma toWDFA_accetps {x : List α} : M.toWDFA.accepts x = 1 ↔ x ∈ M.accepts := by
+  simp [WDFA.accepts, accepts, toWDFA_acceptsFrom]
+
+end DFA
