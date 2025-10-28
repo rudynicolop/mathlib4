@@ -3,6 +3,7 @@ Copyright (c) 2025 Rudy Peterson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
+import Mathlib.Computability.NFA
 import Mathlib.Computability.WeightedDFA
 import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Functor
@@ -11,6 +12,7 @@ import Mathlib.Algebra.BigOperators.Ring.Multiset
 import Mathlib.Data.Finsupp.Basic
 import Mathlib.Data.Finsupp.Weight
 import Mathlib.Data.Finsupp.Notation
+import Mathlib.Algebra.Ring.BooleanRing
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -30,11 +32,11 @@ structure WNFA (α : Type u) (σ : Type v) (κ : Type k) where
 
 namespace WNFA
 
-variable {α : Type u} {κ : Type k}
+variable {α : Type u}
 
 section basic
 
-variable {σ : Type v} [W : Semiring κ]
+variable {κ : Type k} {σ : Type v} [W : Semiring κ]
 
 instance : Inhabited (WNFA α σ κ) :=
   ⟨WNFA.mk (fun _ _ ↦ ∅) ∅ (fun _ ↦ 0)⟩
@@ -111,9 +113,34 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
 
+section boolean
+
+variable {σ : Type} (M : WNFA α σ Bool)
+
+@[simp]
+def toNFAStart : Set σ :=
+  { s | ∃ sw, sw ∈ M.start ∧ sw.1 = s ∧ sw.2 }
+
+@[simp]
+def toNFAAccept : Set σ := { s | M.final s }
+
+@[simp]
+def toNFAStep (s : σ) (a : α) : Set σ :=
+  { s' | ∃ sw', sw' ∈ M.step s a ∧ sw'.1 = s' ∧ sw'.2 }
+
+@[simps]
+def toNFA : NFA α σ where
+  step := M.toNFAStep
+  start := M.toNFAStart
+  accept := M.toNFAAccept
+
+-- lemma toNFA_acceptsFrom {x : List α} :
+
+end boolean
+
 section union
 
-variable {σ1 σ2 : Type v}
+variable {κ : Type k} {σ1 σ2 : Type v}
 
 lemma disjoint_injlr {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
     Disjoint (Prod.map Sum.inl id <$> S1) (Prod.map Sum.inr id <$> S2) := by
@@ -187,7 +214,7 @@ end union
 
 section inter
 
-variable {σ1 σ2 : Type v} [W : CommSemiring κ]
+variable {κ : Type k} {σ1 σ2 : Type v} [W : CommSemiring κ]
 
 @[simp]
 def combine (sw : (σ1 × κ) × (σ2 × κ)) : (σ1 × σ2) × κ :=
