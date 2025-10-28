@@ -199,15 +199,15 @@ instance : HMul (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := �
 lemma inter_eq_hmul {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} : M1 * M2 = M1.inter M2 := rfl
 
 @[simp]
-def inter_start_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+lemma inter_start_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
   (M1 * M2).start = inter_start M1 M2 := rfl
 
 @[simp]
-def inter_final_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+lemma inter_final_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
   (M1 * M2).final = inter_final M1 M2 := rfl
 
 @[simp]
-def inter_step_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
+lemma inter_step_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
   (M1 * M2).step = inter_step M1 M2 := rfl
 
 lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
