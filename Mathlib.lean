@@ -3206,6 +3206,7 @@ public import Mathlib.Computability.WeightedDFA
 public import Mathlib.Computability.WeightedLanguage
 public import Mathlib.Computability.WeightedNFA
 public import Mathlib.Computability.WeightedPath
+public import Mathlib.Computability.WeightedRegularExpressions
 public import Mathlib.Condensed.AB
 public import Mathlib.Condensed.Basic
 public import Mathlib.Condensed.CartesianClosed
