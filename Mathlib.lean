@@ -3204,6 +3204,7 @@ public import Mathlib.Computability.TuringDegree
 public import Mathlib.Computability.TuringMachine
 public import Mathlib.Computability.WeightedDFA
 public import Mathlib.Computability.WeightedLanguage
+public import Mathlib.Computability.WeightedNFA
 public import Mathlib.Computability.WeightedPath
 public import Mathlib.Condensed.AB
 public import Mathlib.Condensed.Basic
