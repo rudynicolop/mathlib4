@@ -7,6 +7,7 @@ import Mathlib.Algebra.Ring.Defs
 import Mathlib.Computability.WeightedPath
 import Mathlib.Computability.WeightedLanguage
 import Mathlib.Computability.DFA
+import Mathlib.Algebra.Ring.BooleanRing
 
 /-!
 # Weighted Deterministic Finite Automata
@@ -45,11 +46,11 @@ structure WDFA (α : Type u) (σ : Type v) (κ : Type k) where
 
 namespace WDFA
 
-variable {α : Type u} {κ : Type k}
+variable {α : Type u}
 
 section basic
 
-variable {σ : Type v} (M : WDFA α σ κ) [W : Semiring κ]
+variable {κ : Type k} {σ : Type v} (M : WDFA α σ κ) [W : Semiring κ]
 
 instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
   ⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ 0)⟩
@@ -159,6 +160,12 @@ lemma acceptsFrom_prod_one (s : σ) (w : κ) (x : List α) :
     w * M.acceptsFrom (s, 1) x := by
   simp [←acceptsFrom_prod]
 
+@[simp]
+lemma acceptsFrom_zero (s : σ) (x : List α) : M.acceptsFrom (s, 0) x = 0 := by
+  induction x generalizing s
+  case nil => simp
+  case cons a x ih => simp [ih]
+
 /-- `M.accepts x` is the weighted lenaguage of `x` such that `(M.evalFromL M.start x).1` is an
 accept state. -/
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
@@ -170,7 +177,7 @@ end basic
 
 section inter
 
-variable {σ1 σ2 : Type v} [W : CommSemiring κ]
+variable {κ : Type k} {σ1 σ2 : Type v} [W : CommSemiring κ]
 
 @[simp]
 def inter_start (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
@@ -239,11 +246,52 @@ end inter
 
 section boolean
 
-variable {σ : Type v}
+variable {σ : Type v} (M : WDFA α σ Bool)
 
--- TODO: fix false transitions in step
-def toDFA (M : WDFA α σ Bool) : DFA α σ :=
-  ⟨(fun s a ↦ (M.step s a).1), M.start.1, { s | M.final s } ⟩
+@[simp]
+def toDFAStart : Option σ :=
+  if M.start.2 then .some M.start.1 else .none
+
+@[simp]
+def toDFAAccept : Set (Option σ) :=
+  { so | ∃ s, M.final s ∧ so = .some s }
+
+@[simp]
+def toDFAStep : Option σ → α → Option σ
+| .none, _ => .none
+| .some s, a =>
+  let ⟨s', w⟩ := M.step s a;
+  if w then .some s' else none
+
+@[simps]
+def toDFA : DFA α (Option σ) where
+  step := M.toDFAStep
+  start := M.toDFAStart
+  accept := M.toDFAAccept
+
+lemma toDFA_acceptsFrom_none {x : List α} : x ∉ M.toDFA.acceptsFrom .none := by
+  induction x
+  case nil => simp
+  case cons a x ih => simpa
+
+lemma toDFA_acceptsFrom {s : σ} {x : List α} :
+    x ∈ M.toDFA.acceptsFrom (.some s) ↔ M.acceptsFrom (s, true) x := by
+  induction x generalizing s
+  case nil => simp; tauto
+  case cons a x ih =>
+    simp
+    rcases hstep : M.step s a with ⟨s', rfl|rfl⟩
+    · simp [hstep, (· * ·), Mul.mul, show false = 0 by rfl]
+      apply toDFA_acceptsFrom_none
+    · simp [hstep, ih, (· * ·), Mul.mul]
+
+theorem toDFA_accepts {x : List α} :
+    x ∈ M.toDFA.accepts ↔ M.accepts x := by
+  simp [accepts, DFA.accepts]
+  rcases M.start with ⟨s, rfl|rfl⟩
+  · simp [show false = 0 by rfl]
+    apply toDFA_acceptsFrom_none
+  · simp [toDFA_acceptsFrom]
 
 end boolean
 
