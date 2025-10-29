@@ -12,7 +12,6 @@ import Mathlib.Algebra.BigOperators.Ring.Multiset
 import Mathlib.Data.Finsupp.Basic
 import Mathlib.Data.Finsupp.Weight
 import Mathlib.Data.Finsupp.Notation
-import Mathlib.Algebra.Ring.BooleanRing
 
 /-!
 # Weighted Nondeterministic Finite Automata
@@ -156,10 +155,7 @@ variable {σ : Type} (M : WNFA α σ Bool) [DecidableEq σ]
 
 @[simp]
 private def getSet (S : Multiset (σ × Bool)) : Set σ :=
-  -- { s | (Multiset.filterMap (β:=Bool) (fun sw ↦ if s = sw.1 then .some sw.2 else .none) S).sum }
-  { s |
-    (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum
-  }
+  { s | (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum }
 
 @[simp]
 def toNFAStart : Set σ := getSet M.start
@@ -192,6 +188,18 @@ def toNFA : NFA α σ where
 
 #check exists_imp
 
+#synth Semiring Bool
+
+#synth CommRing Bool
+
+/-
+possible bug for [Add] instance for [Bool]: https://leanprover-community.github.io/mathlib4_docs/Mathlib/Algebra/Ring/BooleanRing.html#instAddBool_mathlib
+
+Should it be [or] instead of [xor]?
+-/
+
+#loogle ?x + ?y, ?x || ?y
+
 lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
     x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x := by
   induction x generalizing S
@@ -201,7 +209,7 @@ lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
     case empty => simp
     case cons sw S ih =>
       simp [Multiset.filter_cons, Multiset.map_add]
-      simp [(· + ·), Add.add]
+      simp only [(· + ·), Add.add]
       simp [distr_fun_ite]
       rcases sw with ⟨s, rfl|rfl⟩ <;> simp
       · rw [←ih]; clear ih
@@ -220,7 +228,8 @@ lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
           · simp [if_neg hss'] at hs'
             simp [show 0 = false by rfl] at hs'
             by_cases hfinal : M.final s <;> simp [hfinal]
-            · sorry
+            ·
+              sorry
             · apply ih.mp; tauto
         · sorry
   case cons a x ih =>
