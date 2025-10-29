@@ -20,6 +20,20 @@ import Mathlib.Algebra.Ring.BooleanRing
 TODO
 -/
 
+section helper
+
+universe u v
+
+variable {α : Type u} {β : Type v}
+
+lemma distr_fun_ite (c : Prop) [Decidable c] (f : α → β) (t e : α) :
+    f (if c then t else e) = if c then f t else f e := by
+  by_cases h : c
+  · simp [if_pos h]
+  · simp [if_neg h]
+
+end helper
+
 universe u v k
 
 structure WNFA (α : Type u) (σ : Type v) (κ : Type k) where
@@ -138,15 +152,13 @@ end basic
 
 section boolean
 
-variable {σ : Type} (M : WNFA α σ Bool)
-
--- #loogle Multiset _ → Finset _
+variable {σ : Type} (M : WNFA α σ Bool) [DecidableEq σ]
 
 @[simp]
 private def getSet (S : Multiset (σ × Bool)) : Set σ :=
+  -- { s | (Multiset.filterMap (β:=Bool) (fun sw ↦ if s = sw.1 then .some sw.2 else .none) S).sum }
   { s |
-    (∃ sw, sw ∈ S ∧ sw.1 = s) -- safety
-    ∧ (∀ sw ∈ S, sw.1 = s → sw.2) -- preservation
+    (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum
   }
 
 @[simp]
@@ -164,20 +176,53 @@ def toNFA : NFA α σ where
   start := M.toNFAStart
   accept := M.toNFAAccept
 
-#loogle Multiset, _ ∈ _
+#loogle Multiset.filterMap _ ?x, Multiset.map _ (Multiset.filter _ ?x)
 
-#loogle Multiset, ∅, _ ∈ _
+#loogle Multiset.map (fun _ ↦ _ * _)
+
+#loogle Multiset.map _ (Multiset.filter _ _)
+
+#loogle Multiset.filter _ (_ ::ₘ _)
+
+#loogle Multiset.filterMap _ (_ ::ₘ _)
+
+#loogle Multiset.map _ (_ + _)
+
+#loogle ?f (ite ?c ?t ?e), ite ?c (?f ?t) (?f ?e)
+
+#check exists_imp
 
 lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
     x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x := by
   induction x generalizing S
   case nil =>
-    simp
-    constructor
-    · rintro ⟨s, ⟨hsafety, hpres⟩, hfinal⟩
-      sorry
-    · intro hmap
-      sorry
+    simp [(· * ·), Mul.mul]
+    induction S using Multiset.induction
+    case empty => simp
+    case cons sw S ih =>
+      simp [Multiset.filter_cons, Multiset.map_add]
+      simp [(· + ·), Add.add]
+      simp [distr_fun_ite]
+      rcases sw with ⟨s, rfl|rfl⟩ <;> simp
+      · rw [←ih]; clear ih
+        apply exists_congr; intro s'
+        by_cases hss' : s = s'
+        · simp [if_pos hss']
+        · simp [if_neg hss', ]
+          simp [show 0 = false by rfl]
+      · constructor
+        · rintro ⟨s', hs', hfinal'⟩
+          by_cases hss' : s = s'
+          · subst s'
+            simp at hs'
+            simp [hfinal']
+            sorry
+          · simp [if_neg hss'] at hs'
+            simp [show 0 = false by rfl] at hs'
+            by_cases hfinal : M.final s <;> simp [hfinal]
+            · sorry
+            · apply ih.mp; tauto
+        · sorry
   case cons a x ih =>
     sorry
 
