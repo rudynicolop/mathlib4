@@ -38,6 +38,28 @@ section basic
 
 variable {κ : Type k} {σ : Type v} [W : Semiring κ]
 
+section condense
+
+variable [DecidableEq σ]
+
+def condense' : Multiset (σ × κ) → Multiset (σ × κ) :=
+  Multiset.foldr
+    (fun sw S ↦
+      if sw.1 ∈ Multiset.map Prod.fst S then
+        S.map
+          (fun sw' ↦
+            if sw'.1 = sw.1 then
+              (sw'.1, sw'.2 + sw.2)
+            else
+              sw')
+      else sw ::ₘ S)
+    ∅
+
+def condense (S : Multiset (σ × κ)) : Finset (σ × κ) :=
+  Finset.mk (condense' S) sorry
+
+end condense
+
 instance : Inhabited (WNFA α σ κ) :=
   ⟨WNFA.mk (fun _ _ ↦ ∅) ∅ (fun _ ↦ 0)⟩
 
@@ -118,16 +140,23 @@ section boolean
 
 variable {σ : Type} (M : WNFA α σ Bool)
 
+-- #loogle Multiset _ → Finset _
+
 @[simp]
-def toNFAStart : Set σ :=
-  { s | ∃ sw, sw ∈ M.start ∧ sw.1 = s ∧ sw.2 }
+private def getSet (S : Multiset (σ × Bool)) : Set σ :=
+  { s |
+    (∃ sw, sw ∈ S ∧ sw.1 = s) -- safety
+    ∧ (∀ sw ∈ S, sw.1 = s → sw.2) -- preservation
+  }
+
+@[simp]
+def toNFAStart : Set σ := getSet M.start
 
 @[simp]
 def toNFAAccept : Set σ := { s | M.final s }
 
 @[simp]
-def toNFAStep (s : σ) (a : α) : Set σ :=
-  { s' | ∃ sw', sw' ∈ M.step s a ∧ sw'.1 = s' ∧ sw'.2 }
+def toNFAStep (s : σ) (a : α) : Set σ := getSet <| M.step s a
 
 @[simps]
 def toNFA : NFA α σ where
@@ -135,7 +164,22 @@ def toNFA : NFA α σ where
   start := M.toNFAStart
   accept := M.toNFAAccept
 
--- lemma toNFA_acceptsFrom {x : List α} :
+#loogle Multiset, _ ∈ _
+
+#loogle Multiset, ∅, _ ∈ _
+
+lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
+    x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x := by
+  induction x generalizing S
+  case nil =>
+    simp
+    constructor
+    · rintro ⟨s, ⟨hsafety, hpres⟩, hfinal⟩
+      sorry
+    · intro hmap
+      sorry
+  case cons a x ih =>
+    sorry
 
 end boolean
 
@@ -216,6 +260,8 @@ end union
 section inter
 
 variable {κ : Type k} {σ1 σ2 : Type v} [W : CommSemiring κ]
+
+-- TODO: Maybe we go back to Finset for WNFA in general, but before the cauchy prod this goes to multiset then condenses?
 
 @[simp]
 def combine (sw : (σ1 × κ) × (σ2 × κ)) : (σ1 × σ2) × κ :=
