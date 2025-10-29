@@ -78,6 +78,7 @@ theorem evalFrom_append_singleton (S : Multiset (σ × κ)) (x : List α) (a : �
     M.evalFrom S (x ++ [a]) = M.stepSet (M.evalFrom S x) a := by
   simp only [evalFrom, List.foldl_append, List.foldl_cons, List.foldl_nil]
 
+@[simp]
 theorem evalFrom_append (S : Multiset (σ × κ)) (x y : List α) :
     M.evalFrom S (x ++ y) = M.evalFrom (M.evalFrom S x) y := by
   simp only [evalFrom, List.foldl_append]
