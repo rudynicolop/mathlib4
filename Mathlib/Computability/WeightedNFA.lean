@@ -151,10 +151,10 @@ end basic
 
 section boolean
 
-variable {σ : Type} (M : WNFA α σ Bool) [DecidableEq σ]
+variable {σ : Type} (M : WNFA α σ (WithZero Unit)) [DecidableEq σ]
 
 @[simp]
-private def getSet (S : Multiset (σ × Bool)) : Set σ :=
+private def getSet (S : Multiset (σ × (WithZero Unit))) : Set σ :=
   { s | (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum }
 
 @[simp]
@@ -171,34 +171,6 @@ def toNFA : NFA α σ where
   step := M.toNFAStep
   start := M.toNFAStart
   accept := M.toNFAAccept
-
-#loogle Multiset.filterMap _ ?x, Multiset.map _ (Multiset.filter _ ?x)
-
-#loogle Multiset.map (fun _ ↦ _ * _)
-
-#loogle Multiset.map _ (Multiset.filter _ _)
-
-#loogle Multiset.filter _ (_ ::ₘ _)
-
-#loogle Multiset.filterMap _ (_ ::ₘ _)
-
-#loogle Multiset.map _ (_ + _)
-
-#loogle ?f (ite ?c ?t ?e), ite ?c (?f ?t) (?f ?e)
-
-#check exists_imp
-
-#synth Semiring Bool
-
-#synth CommRing Bool
-
-/-
-possible bug for [Add] instance for [Bool]: https://leanprover-community.github.io/mathlib4_docs/Mathlib/Algebra/Ring/BooleanRing.html#instAddBool_mathlib
-
-Should it be [or] instead of [xor]?
--/
-
-#loogle ?x + ?y, ?x || ?y
 
 lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
     x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x := by
