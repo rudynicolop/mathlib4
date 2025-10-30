@@ -7,7 +7,8 @@ import Mathlib.Algebra.Ring.Defs
 import Mathlib.Computability.WeightedPath
 import Mathlib.Computability.WeightedLanguage
 import Mathlib.Computability.DFA
-import Mathlib.Algebra.Ring.BooleanRing
+import Mathlib.Algebra.Ring.PUnit
+import Mathlib.Algebra.Ring.WithZero
 
 /-!
 # Weighted Deterministic Finite Automata
@@ -244,24 +245,31 @@ theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
 
 end inter
 
-section boolean
+section toDFA
 
-variable {σ : Type v} (M : WDFA α σ Bool)
+/- ### Weighted to unweighted DFA
+
+We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bool` uses `xor`, not
+`or`. Instead we use a type isomorphic to `Bool`.
+
+-/
+
+variable {σ : Type v} (M : WDFA α σ (WithZero Unit))
 
 @[simp]
 def toDFAStart : Option σ :=
-  if M.start.2 then .some M.start.1 else .none
+  if M.start.2 = 1 then .some M.start.1 else .none
 
 @[simp]
 def toDFAAccept : Set (Option σ) :=
-  { so | ∃ s, M.final s ∧ so = .some s }
+  { so | ∃ s, M.final s = 1 ∧ so = .some s }
 
 @[simp]
 def toDFAStep : Option σ → α → Option σ
 | .none, _ => .none
 | .some s, a =>
   let ⟨s', w⟩ := M.step s a;
-  if w then .some s' else none
+  if w = 1 then .some s' else none
 
 @[simps]
 def toDFA : DFA α (Option σ) where
@@ -274,26 +282,31 @@ lemma toDFA_acceptsFrom_none {x : List α} : x ∉ M.toDFA.acceptsFrom .none := 
   case nil => simp
   case cons a x ih => simpa
 
+lemma wzu_zero_or_one (w : WithZero Unit) : w = 0 ∨ w = 1 :=
+  match w with
+  | .none => by tauto
+  | .some .unit => by tauto
+
 lemma toDFA_acceptsFrom {s : σ} {x : List α} :
-    x ∈ M.toDFA.acceptsFrom (.some s) ↔ M.acceptsFrom (s, true) x := by
+    x ∈ M.toDFA.acceptsFrom (.some s) ↔ M.acceptsFrom (s, 1) x = 1 := by
   induction x generalizing s
-  case nil => simp; tauto
+  case nil => simp
   case cons a x ih =>
-    simp
-    rcases hstep : M.step s a with ⟨s', rfl|rfl⟩
-    · simp [hstep, (· * ·), Mul.mul, show false = 0 by rfl]
-      apply toDFA_acceptsFrom_none
-    · simp [hstep, ih, (· * ·), Mul.mul]
+    rcases hstep : M.step s a with ⟨s', w⟩
+    simp [hstep]
+    rcases (wzu_zero_or_one w) with rfl | rfl
+    · simp [toDFA_acceptsFrom_none]
+    · simp [ih]
 
 theorem toDFA_accepts {x : List α} :
-    x ∈ M.toDFA.accepts ↔ M.accepts x := by
+    x ∈ M.toDFA.accepts ↔ M.accepts x = 1 := by
   simp [accepts, DFA.accepts]
-  rcases M.start with ⟨s, rfl|rfl⟩
-  · simp [show false = 0 by rfl]
-    apply toDFA_acceptsFrom_none
+  rcases M.start with ⟨s, w⟩
+  rcases (wzu_zero_or_one w) with rfl | rfl
+  · simp [toDFA_acceptsFrom_none]
   · simp [toDFA_acceptsFrom]
 
-end boolean
+end toDFA
 
 end WDFA
 
