@@ -51,28 +51,6 @@ section basic
 
 variable {κ : Type k} {σ : Type v} [W : Semiring κ]
 
-section condense
-
-variable [DecidableEq σ]
-
-def condense' : Multiset (σ × κ) → Multiset (σ × κ) :=
-  Multiset.foldr
-    (fun sw S ↦
-      if sw.1 ∈ Multiset.map Prod.fst S then
-        S.map
-          (fun sw' ↦
-            if sw'.1 = sw.1 then
-              (sw'.1, sw'.2 + sw.2)
-            else
-              sw')
-      else sw ::ₘ S)
-    ∅
-
-def condense (S : Multiset (σ × κ)) : Finset (σ × κ) :=
-  Finset.mk (condense' S) sorry
-
-end condense
-
 instance : Inhabited (WNFA α σ κ) :=
   ⟨WNFA.mk (fun _ _ ↦ ∅) ∅ (fun _ ↦ 0)⟩
 
@@ -149,19 +127,26 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
 
-section boolean
+section toNFA
+
+/- ### Weighted to unweighted NFA
+
+We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bool` uses `xor`, not
+`or`. Instead we use a type isomorphic to `Bool`.
+
+-/
 
 variable {σ : Type} (M : WNFA α σ (WithZero Unit)) [DecidableEq σ]
 
 @[simp]
-private def getSet (S : Multiset (σ × (WithZero Unit))) : Set σ :=
-  { s | (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum }
+private def getSet (S : Multiset (σ × WithZero Unit)) : Set σ :=
+  { s | (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum = 1 }
 
 @[simp]
 def toNFAStart : Set σ := getSet M.start
 
 @[simp]
-def toNFAAccept : Set σ := { s | M.final s }
+def toNFAAccept : Set σ := { s | M.final s = 1 }
 
 @[simp]
 def toNFAStep (s : σ) (a : α) : Set σ := getSet <| M.step s a
@@ -172,42 +157,38 @@ def toNFA : NFA α σ where
   start := M.toNFAStart
   accept := M.toNFAAccept
 
-lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × Bool)} :
-    x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x := by
+@[simp]
+lemma wzu_add_eq_one (x y : WithZero Unit) :
+    x + y = 1 ↔ (x = 1 ∨ y = 1) := by
+  rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
+  rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
+
+lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × WithZero Unit)} :
+    x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x = 1 := by
   induction x generalizing S
   case nil =>
-    simp [(· * ·), Mul.mul]
+    simp
     induction S using Multiset.induction
     case empty => simp
     case cons sw S ih =>
-      simp [Multiset.filter_cons, Multiset.map_add]
-      simp only [(· + ·), Add.add]
-      simp [distr_fun_ite]
-      rcases sw with ⟨s, rfl|rfl⟩ <;> simp
-      · rw [←ih]; clear ih
-        apply exists_congr; intro s'
-        by_cases hss' : s = s'
-        · simp [if_pos hss']
-        · simp [if_neg hss', ]
-          simp [show 0 = false by rfl]
-      · constructor
-        · rintro ⟨s', hs', hfinal'⟩
-          by_cases hss' : s = s'
-          · subst s'
-            simp at hs'
-            simp [hfinal']
-            sorry
-          · simp [if_neg hss'] at hs'
-            simp [show 0 = false by rfl] at hs'
-            by_cases hfinal : M.final s <;> simp [hfinal]
-            ·
-              sorry
-            · apply ih.mp; tauto
-        · sorry
+      rcases sw with ⟨s, w⟩
+      simp [Multiset.filter_cons, Multiset.map_add, distr_fun_ite]
+      rcases (WDFA.wzu_zero_or_one w) with rfl | rfl
+      · simpa
+      · simp [←ih]; clear ih
+        constructor
+        · rintro ⟨s', hs' | hsum, hfinal'⟩
+          · by_cases hss' : s = s'
+            · subst s'; tauto
+            · simp [hss'] at hs'
+          · tauto
+        · rintro (hfinal | h)
+          · sorry
+          · sorry
   case cons a x ih =>
     sorry
 
-end boolean
+end toNFA
 
 section union
 
