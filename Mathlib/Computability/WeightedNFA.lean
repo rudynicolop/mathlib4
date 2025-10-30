@@ -182,9 +182,9 @@ lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × WithZero Unit)} :
             · subst s'; tauto
             · simp [hss'] at hs'
           · tauto
-        · rintro (hfinal | h)
-          · sorry
-          · sorry
+        · rintro (hfinal | ⟨s', hs', hfinal'⟩)
+          · exists s; simpa
+          · exists s'; tauto
   case cons a x ih =>
     sorry
 
