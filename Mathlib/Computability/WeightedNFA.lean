@@ -138,7 +138,6 @@ We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bo
 
 variable {σ : Type} (M : WNFA α σ (WithZero Unit)) [DecidableEq σ]
 
-@[simp]
 private def getSet (S : Multiset (σ × WithZero Unit)) : Set σ :=
   { s | (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum = 1 }
 
@@ -163,11 +162,34 @@ lemma wzu_add_eq_one (x y : WithZero Unit) :
   rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
   rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
 
+#check Multiset.map_bind
+
+#loogle Multiset.map _ (Multiset.filter _ _)
+
+#loogle Multiset.filterMap, Multiset.bind
+
+#loogle Multiset.bind
+
+#loogle Multiset.map _ (Multiset.map _ _)
+
+#loogle Multiset.join, Multiset.filter
+
+#loogle Multiset.bind, Multiset.map
+
+lemma toNFA_stepSet {S : Multiset (σ × WithZero Unit)} {a : α} :
+    M.toNFA.stepSet (getSet S) a = getSet (M.stepSet S a) := by
+  ext x
+  simp [stepSet, NFA.stepSet]
+  simp [getSet]
+  simp [Multiset.bind.eq_1]
+  sorry
+
 lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × WithZero Unit)} :
     x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x = 1 := by
   induction x generalizing S
   case nil =>
     simp
+    simp [getSet]
     induction S using Multiset.induction
     case empty => simp
     case cons sw S ih =>
@@ -186,7 +208,8 @@ lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × WithZero Unit)} :
           · exists s; simpa
           · exists s'; tauto
   case cons a x ih =>
-    sorry
+    simp only [NFA.mem_acceptsFrom_cons, toNFA_stepSet, ih]
+    rfl
 
 end toNFA
 
