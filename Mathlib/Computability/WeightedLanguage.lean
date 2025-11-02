@@ -6,6 +6,7 @@ Authors: Rudy Peterson
 import Mathlib.Data.List.Perm.Lattice
 import Mathlib.Algebra.Ring.Defs
 import Mathlib.Algebra.BigOperators.Group.List.Basic
+import Mathlib.Algebra.BigOperators.Ring.List
 
 /-!
 # Weigted Languages
@@ -24,35 +25,16 @@ The main result in this file is the construction of a semiring for weighted lang
 
 ## References
 
-* [R. Cotterell, A. Steve, A. Butoi, A. Opedal, and F. Nowak, *Advanced Formal Language Theory:
-  Regular Languages*][cotterell]
-* <https://drive.google.com/file/d/1wXv-e5tL6WxwK7vzBuVSDySYjkuoGW7f/view>
+* [Advanced Formal Language Theory: Regular Languages][weighted-regular-languages]
+* [Handbook of Weighted Automata][Handbook-of-Weighted-Automata]
 -/
 
 open List
 
-section SemiOps
-
-universe k
-
-variable {κ : Type k} [W : Semiring κ]
-
-lemma sum_left_distrib (w : κ) (l : List κ) : l.sum * w = (List.map (· * w) l).sum := by
-  induction l <;> simp
-  case cons h t ih =>
-    rw [←ih, W.right_distrib]
-
-lemma sum_right_distrib (l : List κ) (w : κ) : w * l.sum = (List.map (w * ·) l).sum := by
-  induction l <;> simp
-  case cons h t ih =>
-    rw [←ih, W.left_distrib]
-
-end SemiOps
-
 universe u k
 
-/-- A weighted language is a map from strings over an alphabet to
-elements of a semiring. -/
+/-- A weighted language is a map from strings `List α` over an alphabet `α` to elements of a
+semiring `κ`. -/
 def WeightedLanguage (α : Type u) (κ : Type k) : Type (max u k) :=
   List α → κ
 
@@ -216,8 +198,8 @@ def cauchy_triple_l (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
 lemma cauchy_prod_triple_l (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = cauchy_triple_l f g h := by
   funext l
-  simp only [cauchy_prod, cauchy_triple_l, Function.comp, sum_left_distrib]
-  simp only [List.map_map, List.splits₃_left, Function.comp]
+  simp only [cauchy_prod, cauchy_triple_l, Function.comp, ←List.sum_map_mul_right]
+  simp only [List.splits₃_left, Function.comp]
   simp only [List.flatMap_def]
   simp [List.map_map]
   unfold Function.comp; simp
@@ -230,8 +212,8 @@ def cauchy_triple_r (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
 lemma cauchy_prod_triple_r (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g.cauchy_prod h) = cauchy_triple_r f g h := by
   funext l
-  simp only [cauchy_prod, cauchy_triple_r, Function.comp, sum_right_distrib]
-  simp only [List.map_map, List.splits₃_right, Function.comp]
+  simp only [cauchy_prod, cauchy_triple_r, Function.comp, ←List.sum_map_mul_left]
+  simp only [List.splits₃_right, Function.comp]
   simp only [List.flatMap_def]
   simp [List.map_map]
   unfold Function.comp; simp
