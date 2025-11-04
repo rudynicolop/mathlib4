@@ -24,6 +24,9 @@ constituent transitions.
 Note that this definition allows for automata with infinite states,
 a `Fintype` instance must be supplied for true DFAs.
 
+Note that since WDFA only use multiplication, we only require a monoid for multiplication, not a
+full semiring.
+
 TODO: explain stuff.
 -/
 
@@ -51,7 +54,7 @@ variable {α : Type u}
 
 section basic
 
-variable {κ : Type k} {σ : Type v} (M : WDFA α σ κ) [W : Semiring κ]
+variable {κ : Type k} {σ : Type v} (M : WDFA α σ κ) [W : MonoidWithZero κ]
 
 instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
   ⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ 0)⟩
@@ -77,25 +80,23 @@ def evalFromL : σ × κ → List α → σ × κ :=
 lemma evalFromL_nil (sw : σ × κ) : M.evalFromL sw [] = sw := rfl
 
 @[simp]
-lemma evalFromL_singleton (sw : σ × κ) (a : α) :
-    M.evalFromL sw [a] = Prod.map id (sw.2 * ·) (M.step sw.1 a) := rfl
-
-@[simp]
-lemma evalFromL_append_singleton (sw : σ × κ) (x : List α) (a : α) :
-    M.evalFromL sw (x ++ [a]) =
-    Prod.map id ((M.evalFromL sw x).2 * ·) (M.step (M.evalFromL sw x).1 a) := by
-  simp only [evalFromL, List.foldl_append, List.foldl_cons, List.foldl_nil]
-  congr
-
-@[simp]
 lemma evalFromL_cons (sw : σ × κ) (a : α) (x : List α) :
     M.evalFromL sw (a :: x) = M.evalFromL (Prod.map id (sw.2 * ·) (M.step sw.1 a)) x := by
   simp only [evalFromL, List.foldl_cons]
   congr
 
+@[simp]
 lemma evalFromL_append (sw : σ × κ) (x y : List α) :
     M.evalFromL sw (x ++ y) = M.evalFromL (M.evalFromL sw x) y := by
   simp only [evalFromL, List.foldl_append]
+
+lemma evalFromL_singleton (sw : σ × κ) (a : α) :
+    M.evalFromL sw [a] = Prod.map id (sw.2 * ·) (M.step sw.1 a) := rfl
+
+lemma evalFromL_append_singleton (sw : σ × κ) (x : List α) (a : α) :
+    M.evalFromL sw (x ++ [a]) =
+    Prod.map id ((M.evalFromL sw x).2 * ·) (M.step (M.evalFromL sw x).1 a) := by
+  simp
 
 lemma evalFromL_prod (s : σ) (w1 w2 : κ) (x : List α) :
     M.evalFromL (s, w1 * w2) x =
@@ -104,9 +105,9 @@ lemma evalFromL_prod (s : σ) (w1 w2 : κ) (x : List α) :
   case nil =>
     simp
   case cons a x ih =>
-    simp [evalFromL_cons, ←ih]
-    rcases (M.step s a) with ⟨s', w'⟩
-    simp [mul_assoc]
+    rcases hstep : (M.step s a) with ⟨s', w'⟩
+    simp only [evalFromL_cons, hstep, Prod.map_apply, id_eq, ← ih]
+    ac_nf
 
 lemma evalFromL_prod_one (s : σ) (w : κ) (x : List α) :
     M.evalFromL (s, w) x =
@@ -178,70 +179,51 @@ end basic
 
 section inter
 
-variable {κ : Type k} {σ1 σ2 : Type v} [W : CommSemiring κ]
+variable {κ : Type k} {σ1 σ2 : Type v} [W : CommMonoidWithZero κ]
 
 @[simp]
-def inter_start (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
+def interStart (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
   ((M1.start.1, M2.start.1), M1.start.2 * M2.start.2)
 
 @[simp]
-def inter_final (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) : κ :=
+def interFinal (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) : κ :=
   M1.final s.1 * M2.final s.2
 
 @[simp]
-def inter_step (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) (a : α) : (σ1 × σ2) × κ :=
+def interStep (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) (a : α) : (σ1 × σ2) × κ :=
   let sw1 := M1.step s.1 a;
   let sw2 := M2.step s.2 a;
   ((sw1.1, sw2.1), sw1.2 * sw2.2)
 
+@[simps]
 def inter (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
-  start := inter_start M1 M2
-  final := inter_final M1 M2
-  step := inter_step M1 M2
-
-instance : HMul (WDFA α σ1 κ) (WDFA α σ2 κ) (WDFA α (σ1 × σ2) κ) := ⟨inter⟩
-
-lemma inter_eq_hmul {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} : M1 * M2 = M1.inter M2 := rfl
-
-@[simp]
-lemma inter_start_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-  (M1 * M2).start = inter_start M1 M2 := rfl
-
-@[simp]
-lemma inter_final_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-  (M1 * M2).final = inter_final M1 M2 := rfl
-
-@[simp]
-lemma inter_step_proj {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-  (M1 * M2).step = inter_step M1 M2 := rfl
+  start := interStart M1 M2
+  final := interFinal M1 M2
+  step := interStep M1 M2
 
 lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
-  {x : List α} {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
-    (M1 * M2).acceptsFrom ((s1, s2), w1 * w2) x
-    = M1.acceptsFrom (s1, w1) x * M2.acceptsFrom (s2, w2) x := by
+  {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
+    (M1.inter M2).acceptsFrom ((s1, s2), w1 * w2)
+    = (M1.acceptsFrom (s1, w1)).pointwise_prod (M2.acceptsFrom (s2, w2)) := by
+  funext x
+  rw [WeightedLanguage.pointwise_prod]
   induction x generalizing s1 s2 w1 w2
   case nil =>
-    simp
-    exact mul_mul_mul_comm w1 w2 (M1.final s1) (M2.final s2)
+    simp only [acceptsFrom_nil, inter_final, interFinal]
+    ac_nf
   case cons a x ih =>
-    simp [ih]
+    simp only [acceptsFrom_cons, inter_step, interStep, ih]
     rcases (M1.step s1 a) with ⟨s1', w1'⟩
     rcases (M2.step s2 a) with ⟨s2', w2'⟩
-    simp [acceptsFrom_prod]
+    simp only [acceptsFrom_prod]
     rw [acceptsFrom_prod_one M1 s1' w2,
         acceptsFrom_prod_one M1 s1' w1',
         acceptsFrom_prod_one M2 s2' w2']
-    simp [W.mul_assoc]
-    congr 1
-    simp [←W.mul_assoc]
-    congr 1
-    congr 1
-    rw [W.mul_comm _ w2, W.mul_assoc, W.mul_comm w1']
+    ac_nf
 
 theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-    (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
-  funext x
-  simp [accepts, WeightedLanguage.pointwise_prod, acceptsFrom_inter]
+    (M1.inter M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
+  simp [accepts, acceptsFrom_inter]
 
 end inter
 
@@ -312,7 +294,7 @@ end WDFA
 
 namespace DFA
 
-variable {α : Type u} {κ : Type k} {σ : Type v} (M : DFA α σ) [W : Semiring κ]
+variable {α : Type u} {κ : Type k} {σ : Type v} (M : DFA α σ) [W : CommMonoidWithZero κ]
 
 /- We need to assume that the set of final states is finite. -/
 variable [Fintype M.accept] [DecidableEq σ]
