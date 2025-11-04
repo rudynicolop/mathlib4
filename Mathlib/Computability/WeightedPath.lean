@@ -21,9 +21,8 @@ valid paths.
 
 ## References
 
-* [R. Cotterell, A. Steve, A. Butoi, A. Opedal, and F. Nowak, *Advanced Formal Language Theory:
-  Regular Languages*][cotterell]
-* <https://drive.google.com/file/d/1wXv-e5tL6WxwK7vzBuVSDySYjkuoGW7f/view>
+* [Advanced Formal Language Theory: Regular Languages][weighted-regular-languages]
+* [Handbook of Weighted Automata][Handbook-of-Weighted-Automata]
 -/
 
 universe k u v
@@ -135,11 +134,11 @@ lemma yield_reverse {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
 
 /-- `π.innerWeight` multiplies the weights in order of all transitions in `π`. -/
 @[simp]
-def innerWeight [W : Semiring κ] {s₁ s₃ : σ} : WeightedPath α κ s₁ s₃ → κ
+def innerWeight [W : Monoid κ] {s₁ s₃ : σ} : WeightedPath α κ s₁ s₃ → κ
   | last _ => 1
   | arc _ _ _ _ w π => w * π.innerWeight
 
-lemma innerWeight_concat [W : Semiring κ] {s₁ s₂ s₃ : σ}
+lemma innerWeight_concat [W : Monoid κ] {s₁ s₂ s₃ : σ}
   (π₁ : WeightedPath α κ s₁ s₂) (π₂ : WeightedPath α κ s₂ s₃) :
     (π₁.concat π₂).innerWeight = π₁.innerWeight * π₂.innerWeight := by
   revert π₂
@@ -149,7 +148,7 @@ lemma innerWeight_concat [W : Semiring κ] {s₁ s₂ s₃ : σ}
   case arc _ s _ a w π₁ ih =>
     simp [ih, W.mul_assoc]
 
-lemma innerWeight_reverse [W : CommSemiring κ] {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
+lemma innerWeight_reverse [W : CommMonoid κ] {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
     π.reverse.innerWeight = π.innerWeight := by
   induction π
   case last _ =>
@@ -188,7 +187,7 @@ lemma foldr_yield {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
   case arc _ s₂ _ a w π ih =>
     simp [ih]
 
-lemma foldr_innerWeight [W : Semiring κ] {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
+lemma foldr_innerWeight [W : Monoid κ] {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
     foldr (fun _ _ w _ ↦ W.mul w) 1 π = π.innerWeight := by
   induction π
   case last _ =>
