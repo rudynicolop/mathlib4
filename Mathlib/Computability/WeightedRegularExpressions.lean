@@ -20,31 +20,27 @@ universe u k
 
 /-- This is the definition of *semiring-weighted* regular expressions. We mirror uniweghted
 `RegularExpression` data type.
-* `0` (`zero`) matches nothing (weight `0`)
-* `1` (`epsilon`) matches only the empty string with weight `1`
+* `w` matchs the empty string with weight `w`
 * `char a` matches only the string 'a' with weight `1`
 * `P + Q` (`plus P Q`) matches anything which match `P` or `Q` and adds the weights
 * `P * Q` (`comp P Q`) matches `x ++ y` if `x` matches `P` and `y` matches `Q` and multiples the
   weights
-* `w` matchs the empty string with weight `w`
 
 NOTE: We do not yet support kleene stars for weighted languages, which naively would involve an
 infinite computation.
 -/
 inductive WRegExp (α : Type u) (κ : Type k) where
-  | zero : WRegExp α κ
-  | epsilon : WRegExp α κ
+  | weight : κ → WRegExp α κ
   | char : α → WRegExp α κ
   | plus : WRegExp α κ → WRegExp α κ → WRegExp α κ
   | comp : WRegExp α κ → WRegExp α κ → WRegExp α κ
-  | weight : κ → WRegExp α κ
 
 namespace WRegExp
 
 variable {α : Type u} {κ : Type k}
 
-instance : Inhabited (WRegExp α κ) :=
-  ⟨zero⟩
+instance [Inhabited κ] : Inhabited (WRegExp α κ) :=
+  ⟨weight default⟩
 
 instance : Add (WRegExp α κ) :=
   ⟨plus⟩
@@ -52,21 +48,21 @@ instance : Add (WRegExp α κ) :=
 instance : Mul (WRegExp α κ) :=
   ⟨comp⟩
 
-instance : One (WRegExp α κ) :=
-  ⟨epsilon⟩
+instance [One κ] : One (WRegExp α κ) :=
+  ⟨weight 1⟩
 
-instance : Zero (WRegExp α κ) :=
-  ⟨zero⟩
+instance [Zero κ] : Zero (WRegExp α κ) :=
+  ⟨weight 0⟩
 
-instance : Pow (WRegExp α κ) ℕ :=
-  ⟨fun n r => npowRec r n⟩
+instance [One κ] : Pow (WRegExp α κ) ℕ :=
+  ⟨fun P n => npowRec n P⟩
 
 @[simp]
-theorem zero_def : (zero : WRegExp α κ) = 0 :=
+theorem zero_def [Zero κ] : weight 0 = (0 : WRegExp α κ) :=
   rfl
 
 @[simp]
-theorem one_def : (epsilon : WRegExp α κ) = 1 :=
+theorem one_def [One κ] : weight 1 = (1 : WRegExp α κ) :=
   rfl
 
 @[simp]
@@ -75,6 +71,10 @@ theorem plus_def (P Q : WRegExp α κ) : plus P Q = P + Q :=
 
 @[simp]
 theorem comp_def (P Q : WRegExp α κ) : comp P Q = P * Q :=
+  rfl
+
+@[simp]
+theorem pow_def [One κ] (P : WRegExp α κ) (n : Nat) : npowRec n P = P ^ n :=
   rfl
 
 section matches'
@@ -87,18 +87,10 @@ Not named `matches` since that is a reserved word.
 -/
 @[simp]
 def matches' : WRegExp α κ → WeightedLanguage α κ
-  | 0 => 0
-  | 1 => 1
-  | char a => fun x ↦ if x = [a] then 1 else 0
   | weight w => WeightedLanguage.scalar_prodl w 1
+  | char a => fun x ↦ if x = [a] then 1 else 0
   | P + Q => P.matches' + Q.matches'
   | P * Q => P.matches' * Q.matches'
-
-theorem matches'_zero : (0 : WRegExp α κ).matches' = 0 :=
-  rfl
-
-theorem matches'_epsilon : (1 : WRegExp α κ).matches' = 1 :=
-  rfl
 
 theorem matches'_char (a : α) : (char a).matches' = (fun x ↦ if x = [a] then W.one else 0) :=
   rfl
@@ -112,14 +104,14 @@ theorem matches'_mul (P Q : WRegExp α κ) : (P * Q).matches' = P.matches' * Q.m
 @[simp]
 theorem matches'_pow (P : WRegExp α κ) (n : ℕ) : (P ^ n).matches' = P.matches' ^ n := by
   induction n generalizing P
-  case zero => rfl
+  case zero =>
+    funext x
+    simp [pow_zero, ←pow_def, npowRec.eq_def, WeightedLanguage.scalar_prodl]
   case succ n ih =>
-    simp [pow_succ, ←ih]
+    simp only [pow_succ, ←ih]
     rfl
 
 def matchEpsilon : WRegExp α κ → κ
-  | 0 => 1
-  | 1 => 0
   | char _ => 0
   | weight w => w
   | P + Q => P.matchEpsilon + Q.matchEpsilon
@@ -128,8 +120,6 @@ def matchEpsilon : WRegExp α κ → κ
 /-- `P.deriv a` matches `x` if `P` matches `a :: x`, the Brzozowski derivative of `P` with respect
   to `a` -/
 def deriv : WRegExp α κ → α → WRegExp α κ
-  | 0, _ => 0
-  | 1, _ => 0
   | weight _, _ => 0
   | char a₁, a₂ => if a₁ = a₂ then 1 else 0
   | P + Q, a => deriv P a + deriv Q a
