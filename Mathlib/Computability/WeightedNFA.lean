@@ -103,11 +103,9 @@ def eval : List α → Multiset (σ × κ) :=
 theorem eval_nil : M.eval [] = M.start :=
   rfl
 
-@[simp]
 theorem eval_singleton (a : α) : M.eval [a] = M.stepSet M.start a :=
   rfl
 
-@[simp]
 theorem eval_append_singleton (x : List α) (a : α) : M.eval (x ++ [a]) = M.stepSet (M.eval x) a :=
   evalFrom_append_singleton ..
 
@@ -221,11 +219,9 @@ lemma disjoint_injlr {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
     Disjoint (Prod.map Sum.inl id <$> S1) (Prod.map Sum.inr id <$> S2) := by
   simp [Multiset.disjoint_map_map]
 
-variable [DecidableEq σ1] [DecidableEq σ2] [DecidableEq κ]
-
 @[simp]
 def union_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Multiset ((σ1 ⊕ σ2) × κ) :=
-  (Prod.map Sum.inl id <$> M1.start) ∪ (Prod.map Sum.inr id <$> M2.start)
+  (Prod.map Sum.inl id <$> M1.start) + (Prod.map Sum.inr id <$> M2.start)
 
 @[simp]
 def union_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 ⊕ σ2) : κ :=
@@ -265,21 +261,18 @@ variable [W : Semiring κ]
 
 lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
-    (M1 + M2).acceptsFrom ((Prod.map Sum.inl id <$> S1) ∪ (Prod.map Sum.inr id <$> S2))
+    (M1 + M2).acceptsFrom ((Prod.map Sum.inl id <$> S1) + (Prod.map Sum.inr id <$> S2))
     = M1.acceptsFrom S1 + M2.acceptsFrom S2 := by
   funext x
   induction x generalizing S1 S2
   case nil =>
     simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
-    simp [←Multiset.fmap_def, ←Multiset.add_eq_union_iff_disjoint.mpr disjoint_injlr]
-    simp [Multiset.fmap_def]
   case cons a x ih =>
     simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def] at *
     simp [←ih]
     clear ih
     congr 1
-    simp [stepSet, ←Multiset.fmap_def, ←Multiset.add_eq_union_iff_disjoint.mpr disjoint_injlr]
-    simp [Multiset.fmap_def, Multiset.bind_map, Multiset.map_bind, Prod.map_map]
+    simp [stepSet, Multiset.bind_map, Multiset.map_bind, Prod.map_map]
 
 lemma accepts_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
     (M1 + M2).accepts = M1.accepts + M2.accepts := by
@@ -298,55 +291,36 @@ def combine (sw : (σ1 × κ) × (σ2 × κ)) : (σ1 × σ2) × κ :=
   ((sw.1.1, sw.2.1,), sw.1.2 * sw.2.2)
 
 @[simp]
-def inter_start (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Multiset ((σ1 × σ2) × κ) :=
+def interStart (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : Multiset ((σ1 × σ2) × κ) :=
   combine <$> (M1.start ×ˢ M2.start)
 
 @[simp]
-def inter_final (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : κ :=
+def interFinal (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) (s : σ1 × σ2) : κ :=
   M1.final s.1 * M2.final s.2
 
 @[simp]
-def inter_step (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
+def interStep (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
   (s : σ1 × σ2) (a : α) : Multiset ((σ1 × σ2) × κ) :=
   combine <$> (M1.step s.1 a ×ˢ M2.step s.2 a)
 
+@[simps]
 def inter (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ) : WNFA α (σ1 × σ2) κ where
-  step := inter_step M1 M2
-  start := inter_start M1 M2
-  final := inter_final M1 M2
-
-instance : HMul (WNFA α σ1 κ) (WNFA α σ2 κ) (WNFA α (σ1 × σ2) κ) := ⟨inter⟩
-
-lemma inter_eq_hmul {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} : M1 * M2 = M1.inter M2 := rfl
-
-@[simp]
-lemma inter_start_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
-  (M1 * M2).start = inter_start M1 M2 := rfl
-
-@[simp]
-lemma inter_final_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
-  (M1 * M2).final = inter_final M1 M2 := rfl
-
-@[simp]
-lemma inter_step_proj {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
-  (M1 * M2).step = inter_step M1 M2 := rfl
+  step := interStep M1 M2
+  start := interStart M1 M2
+  final := interFinal M1 M2
 
 lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
-    (M1 * M2).acceptsFrom (combine <$> (S1 ×ˢ S2))
+    (M1.inter M2).acceptsFrom (combine <$> (S1 ×ˢ S2))
     = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
   funext x
-  simp [WeightedLanguage.pointwise_prod]
+  rw [WeightedLanguage.pointwise_prod]
   induction x generalizing S1 S2
   case nil =>
     rw [mul_comm (M1.acceptsFrom S1 [])]
     simp [←Multiset.sum_map_mul_left, ←Multiset.sum_map_mul_right]
     simp [Multiset.instSProd, Multiset.product.eq_1, Multiset.map_bind]
-    congr; funext ⟨s1, w1⟩
-    congr; funext ⟨s2, w2⟩
-    simp [←mul_comm (w1 * M1.final s1), mul_assoc]
-    congr 1
-    simp [←mul_assoc (M1.final s1), mul_comm (M1.final s1) w2, mul_assoc]
+    ac_nf
   case cons a x ih =>
     simp [←ih]
     clear ih
@@ -354,14 +328,10 @@ lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
     congr
     simp [Multiset.instSProd, Multiset.product.eq_1, Multiset.bind_map]
     simp [Multiset.map_bind, Multiset.bind_assoc, Multiset.bind_map, ←Multiset.bind_bind S2]
-    congr; funext ⟨s2, w2⟩
-    congr; funext ⟨s1, w1⟩
-    congr; funext ⟨s1', w1'⟩
-    congr; funext ⟨s2', w2'⟩
-    simp [mul_assoc w1 w1', ←mul_assoc w1' w2 w2', mul_comm w1' w2, mul_assoc]
+    ac_nf
 
 theorem accepts_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
-    (M1 * M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
+    (M1.inter M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
   simp [accepts, ←acceptsFrom_inter]
 
 end inter
@@ -580,40 +550,25 @@ lemma combineProd₀_support (S1 : σ1 →₀ κ) (S2 : σ2 →₀ κ) :
   simp
 
 @[simp]
-def inter_start (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
+def interStart (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
   combineProd₀ M1.start M2.start
 
 @[simp]
-def inter_final (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
+def interFinal (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : σ1 × σ2 →₀ κ :=
   combineProd₀ M1.final M2.final
 
 @[simp]
-def inter_step (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) (s : σ1 × σ2) (a : α) : σ1 × σ2 →₀ κ :=
+def interStep (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) (s : σ1 × σ2) (a : α) : σ1 × σ2 →₀ κ :=
   combineProd₀ (M1.step s.1 a) (M2.step s.2 a)
 
+@[simps]
 def inter (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : WNFA₂ α (σ1 × σ2) κ where
-  step := inter_step M1 M2
-  start := inter_start M1 M2
-  final := inter_final M1 M2
-
-instance : HMul (WNFA₂ α σ1 κ) (WNFA₂ α σ2 κ) (WNFA₂ α (σ1 × σ2) κ) := ⟨inter⟩
-
-lemma inter_eq_hmul {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} : M1 * M2 = inter M1 M2 := rfl
-
-@[simp]
-lemma inter_start_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
-  (M1 * M2).start = inter_start M1 M2 := rfl
-
-@[simp]
-lemma inter_final_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
-  (M1 * M2).final = inter_final M1 M2 := rfl
-
-@[simp]
-lemma inter_step_proj {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
-  (M1 * M2).step = inter_step M1 M2 := rfl
+  step := interStep M1 M2
+  start := interStart M1 M2
+  final := interFinal M1 M2
 
 lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
-    (acceptsFrom (M1 * M2)) (combineProd₀ S1 S2)
+    (acceptsFrom (inter M1 M2)) (combineProd₀ S1 S2)
     = (acceptsFrom M1 S1).pointwise_prod (acceptsFrom M2 S2) := by
   funext x
   simp [WeightedLanguage.pointwise_prod]
@@ -624,7 +579,7 @@ lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
     congr; funext s1
     congr; funext s2
     rw [mul_assoc (S1 s1) (M1.final s1), ←mul_assoc (M1.final s1), mul_comm (M1.final s1) (S2 s2)]
-    simp [mul_assoc]
+    ac_nf
   case cons a x ih =>
     simp [←ih]; clear ih
     simp [stepSet]
@@ -635,13 +590,11 @@ lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
     simp [Finset.sum_product, Finset.sum_mul_sum]
     congr; funext s1
     congr; funext s2
-    rw [mul_assoc (S1 s1) ((M1.step s1 a) s1'),
-        ←mul_assoc ((M1.step s1 a) s1') (S2 s2),
-        mul_comm ((M1.step s1 a) s1') (S2 s2)]
-    simp [mul_assoc]
+    rw [mul_assoc (S1 s1) ((M1.step s1 a) s1')]
+    ac_nf
 
 theorem accepts_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
-    accepts (M1 * M2) = (accepts M1).pointwise_prod (accepts M2) := by
+    accepts (inter M1 M2) = (accepts M1).pointwise_prod (accepts M2) := by
   simp [accepts, ←acceptsFrom_inter]
 
 end inter
