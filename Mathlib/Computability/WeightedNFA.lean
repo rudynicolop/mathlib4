@@ -327,7 +327,8 @@ section inter
 
 variable {κ : Type k} {σ1 σ2 : Type v} [W : CommSemiring κ]
 
--- TODO: Maybe we go back to Finset for WNFA in general, but before the cauchy prod this goes to multiset then condenses?
+/- TODO: Maybe we go back to Finset for WNFA in general, but before the cauchy prod this goes to
+multiset then condenses? -/
 
 @[simp]
 def combine (sw : (σ1 × κ) × (σ2 × κ)) : (σ1 × σ2) × κ :=
@@ -641,6 +642,17 @@ theorem accepts_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} :
   simp [accepts, ←acceptsFrom_inter]
 
 end inter
+
+noncomputable section toWNFA
+
+variable {σ : Type v} [W : CommSemiring κ] (M : WNFA₂ α σ κ)
+
+def toWNFAstart : Multiset (σ × κ) :=
+  M.start.support.val.map (fun s ↦ (s, M.start s))
+
+def toWNFAfinal : σ → κ := M.final.toFun
+
+end toWNFA
 
 noncomputable section reverse
 
