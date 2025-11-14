@@ -31,6 +31,13 @@ lemma distr_fun_ite (c : Prop) [Decidable c] (f : α → β) (t e : α) :
   · simp [if_pos h]
   · simp [if_neg h]
 
+-- Maybe someday this will be merged into Mathlib...
+theorem Multiset.filter_eq_bind (m : Multiset α) (p : α → Prop) [DecidablePred p] :
+    filter p m = bind m (fun a => if p a then {a} else 0) := by
+  induction m using Multiset.induction with
+  | empty => simp
+  | cons a m ih => simp [filter_cons, ih]
+
 end helper
 
 universe u v k
@@ -65,6 +72,14 @@ theorem mem_stepSet {sw : σ × κ} {S : Multiset (σ × κ)} {a : α} :
 
 @[simp]
 theorem stepSet_empty (a : α) : M.stepSet ∅ a = ∅ := by simp [stepSet]
+
+@[simp]
+theorem stepSet_zero (a : α) : M.stepSet 0 a = ∅ := M.stepSet_empty a
+
+@[simp]
+theorem stepSet_cons (a : α) (sw : σ × κ) (S : Multiset (σ × κ)) :
+    M.stepSet (sw ::ₘ S) a = (M.step sw.1 a).map (Prod.map id (sw.2 * ·)) + M.stepSet S a := by
+  simp [stepSet]
 
 @[simp]
 theorem stepSet_singleton (sw : σ × κ) (a : α) :
@@ -136,8 +151,49 @@ We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bo
 
 variable {σ : Type} (M : WNFA α σ (WithZero Unit)) [DecidableEq σ]
 
+@[simp]
+lemma wzu_add_eq_one (x y : WithZero Unit) :
+    x + y = 1 ↔ (x = 1 ∨ y = 1) := by
+  rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
+  rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
+
+@[simp]
+lemma wzu_mul_eq_one (x y : WithZero Unit) :
+    x * y = 1 ↔ (x = 1 ∧ y = 1) := by
+  rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
+  rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
+
 private def getSet (S : Multiset (σ × WithZero Unit)) : Set σ :=
   { s | (Multiset.map Prod.snd (Multiset.filter (fun sw ↦ sw.1 = s) S)).sum = 1 }
+
+@[simp]
+private theorem getSet_zero : getSet (0 : Multiset (σ × WithZero Unit)) = ∅ := by
+  simp [getSet]
+
+@[simp]
+private theorem getSet_cons (sw : σ × WithZero Unit) (S : Multiset (σ × WithZero Unit)) :
+    getSet (sw ::ₘ S) = (if sw.2 = 1 then {sw.1} else ∅) ∪ getSet S := by
+  obtain ⟨s, w⟩ := sw
+  ext q
+  simp [getSet, Multiset.filter_cons]
+  by_cases hsq : s = q
+  · subst q
+    simp
+  · simp [if_neg hsq]
+    rintro rfl rfl
+    contradiction
+
+@[simp]
+private theorem getSet_add (S1 S2 : Multiset (σ × WithZero Unit)) :
+    getSet (S1 + S2) = getSet S1 ∪ getSet S2 := by
+  ext q
+  simp [getSet]
+
+private theorem getSet_map_zero (S : Multiset (σ × WithZero Unit)) :
+    getSet (Multiset.map (fun sw ↦ Prod.map id (fun _ ↦ 0) sw) S) = ∅ := by
+  induction S using Multiset.induction with
+  | empty => simp
+  | cons sw S ih => simp [ih]
 
 @[simp]
 def toNFAStart : Set σ := getSet M.start
@@ -154,60 +210,47 @@ def toNFA : NFA α σ where
   start := M.toNFAStart
   accept := M.toNFAAccept
 
-@[simp]
-lemma wzu_add_eq_one (x y : WithZero Unit) :
-    x + y = 1 ↔ (x = 1 ∨ y = 1) := by
-  rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
-  rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
-
-#check Multiset.map_bind
-
-#loogle Multiset.map _ (Multiset.filter _ _)
-
-#loogle Multiset.filterMap, Multiset.bind
-
-#loogle Multiset.bind
-
-#loogle Multiset.map _ (Multiset.map _ _)
-
-#loogle Multiset.join, Multiset.filter
-
-#loogle Multiset.bind, Multiset.map
-
 lemma toNFA_stepSet {S : Multiset (σ × WithZero Unit)} {a : α} :
     M.toNFA.stepSet (getSet S) a = getSet (M.stepSet S a) := by
-  ext x
-  simp [stepSet, NFA.stepSet]
-  simp [getSet]
-  simp [Multiset.bind.eq_1]
-  sorry
+  induction S using Multiset.induction with
+  | empty =>
+    simp
+  | cons sw S ih =>
+    obtain ⟨s, w⟩ := sw
+    simp [NFA.stepSet_union, ih]
+    rcases (WDFA.wzu_zero_or_one w) with rfl | rfl
+    · simp [getSet_map_zero]
+    · simp [←Function.id_def, Prod.map_id]
+
+theorem getSet_final_exists {S : Multiset (σ × WithZero Unit)} :
+    (∃ s ∈ getSet S, M.final s = 1) ↔ (Multiset.map (fun sw ↦ sw.2 * M.final sw.1) S).sum = 1 := by
+  induction S using Multiset.induction with
+  | empty => simp
+  | cons sw S ih =>
+    obtain ⟨s, w⟩ := sw
+    simp [←ih]; clear ih
+    constructor
+    · rintro ⟨q, (⟨rfl, rfl⟩ | h), hq⟩
+      · simp
+        tauto
+      · tauto
+    · rintro (⟨rfl, h⟩ | ⟨q, h, hq⟩)
+      · exists s
+        tauto
+      · exists q
+        tauto
 
 lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × WithZero Unit)} :
     x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x = 1 := by
   induction x generalizing S
   case nil =>
-    simp
-    simp [getSet]
-    induction S using Multiset.induction
-    case empty => simp
-    case cons sw S ih =>
-      rcases sw with ⟨s, w⟩
-      simp [Multiset.filter_cons, Multiset.map_add, distr_fun_ite]
-      rcases (WDFA.wzu_zero_or_one w) with rfl | rfl
-      · simpa
-      · simp [←ih]; clear ih
-        constructor
-        · rintro ⟨s', hs' | hsum, hfinal'⟩
-          · by_cases hss' : s = s'
-            · subst s'; tauto
-            · simp [hss'] at hs'
-          · tauto
-        · rintro (hfinal | ⟨s', hs', hfinal'⟩)
-          · exists s; simpa
-          · exists s'; tauto
+    simp [getSet_final_exists]
   case cons a x ih =>
     simp only [NFA.mem_acceptsFrom_cons, toNFA_stepSet, ih]
     rfl
+
+theorem toNFA_accepts {x : List α} : x ∈ M.toNFA.accepts ↔ M.accepts x = 1 := by
+  apply toNFA_acceptsFrom
 
 end toNFA
 
