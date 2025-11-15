@@ -647,18 +647,16 @@ noncomputable section toWNFA
 
 variable {σ : Type v} [W : CommSemiring κ] (M : WNFA₂ α σ κ)
 
-variable [DecidableEq σ] [DecidableEq κ]
-
 -- consider goint back to converting to multiset first
 def getMultiset (S : σ →₀ κ) : Multiset (σ × κ) :=
-  (S.support.image (fun s ↦ (s, S s))).val
+  S.support.val.map (fun s ↦ (s, S s))
 
 @[simp]
 theorem getMultiset_zero : getMultiset (0 : σ →₀ κ) = 0 := by
   simp [getMultiset]
 
 @[simp]
-theorem getMultiset_single (s : σ) (w : κ) :
+theorem getMultiset_single [DecidableEq κ] (s : σ) (w : κ) :
     getMultiset (fun₀ | s => w) = if w = 0 then 0 else {(s, w)} := by
   by_cases hw : w = 0
   · subst w
@@ -673,24 +671,22 @@ theorem getMultiset_single (s : σ) (w : κ) :
 
 #check Multiset.map_congr
 
+variable [DecidableEq σ]
+
 theorem getMultiset_disjoint_add (S1 S2 : σ →₀ κ) (h : Disjoint S1.support S2.support) :
     getMultiset (S1 + S2) = getMultiset S1 + getMultiset S2 := by
   simp [getMultiset, Finsupp.support_add_eq h]
   rw [←Multiset.add_eq_union_iff_disjoint.mpr <| Finset.disjoint_val.mpr h]
   simp [Multiset.map_add]
-  rw [Multiset.Disjoint.dedup_add]
-  · congr 2 <;> apply Multiset.map_congr rfl
-    · intro s hs1
-      have hs2 := Disjoint.notMem_of_mem_left_finset h hs1
-      simp [Finsupp.notMem_support_iff.mp hs2]
-    · intro s hs2
-      have hs1 := Disjoint.notMem_of_mem_right_finset h hs2
-      simp [Finsupp.notMem_support_iff.mp hs1]
-  · simp [Multiset.disjoint_map_map]
-    rintro s1 hs1 s2 hs2 rfl
-    rw [←ne_eq, ←Finsupp.mem_support_iff] at hs1
-    rw [←ne_eq, ←Finsupp.mem_support_iff] at hs2
-    obtain ⟨⟩ := Disjoint.notMem_of_mem_left_finset h hs1 hs2
+  congr 1 <;> apply Multiset.map_congr rfl
+  · intro s hs1
+    have hs2 := Disjoint.notMem_of_mem_left_finset h hs1
+    simp [Finsupp.notMem_support_iff.mp hs2]
+  · intro s hs2
+    have hs1 := Disjoint.notMem_of_mem_right_finset h hs2
+    simp [Finsupp.notMem_support_iff.mp hs1]
+
+variable [DecidableEq κ]
 
 theorem dedup_getMultiset (S : σ →₀ κ) :
     (getMultiset S).dedup = getMultiset S := by
@@ -736,16 +732,33 @@ def toWNFA : WNFA α σ κ where
 
 #check Finset.image_val
 
+#check Multiset.dedup_eq_self
+
+#check Finset.nodup
+
+#loogle Function.onFun
+
+#loogle Finsupp.support, Finsupp.mapRange
+
+#check Finsupp.support_mapRange_of_injective
+#check Finsupp.mapRange.eq_1
+
 theorem stepSet_getMultiset {S : σ →₀ κ} {a : α} :
     (toWNFA M).stepSet (getMultiset S) a = getMultiset (stepSet M S a) := by
-  have hdedupS := dedup_getMultiset S
-  have hdedupStepSet := dedup_getMultiset (stepSet M S a)
-  simp? [stepSet, WNFA.stepSet, getMultiset]
-  rw [getMultiset, ←Finset.image_val] at hdedupS
+  simp [stepSet, WNFA.stepSet, getMultiset, Multiset.bind_map]
   rw [Finsupp.support_sum_eq_biUnion]
+  · simp
+    rw [Multiset.Nodup.dedup]
+    · sorry
+    · rw [Multiset.nodup_bind]
+      simp [Finset.nodup]
+      apply fun x => Multiset.Nodup.pairwise x <| Finset.nodup _
+      intro s1 hs1 s2 hs2 hneq
+      simp
+      -- this seems invalid...
+      sorry
   ·
     sorry
-  · sorry
 
 #check Finset.image_val
 
