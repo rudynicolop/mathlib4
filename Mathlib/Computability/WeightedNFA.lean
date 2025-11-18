@@ -917,4 +917,67 @@ theorem accepts_hadd : (M1 + M2).accepts = M1.accepts + M2.accepts := by
 
 end union
 
+section inter
+
+variable {σ1 σ2 : Type v} [W : CommSemiring κ]
+
+def combineProd (S1 : σ1 → κ) (S2 : σ2 → κ) (s : σ1 × σ2) : κ := S1 s.1 * S2 s.2
+
+variable (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
+
+@[simp]
+def interStart : σ1 × σ2 → κ := combineProd M1.start M2.start
+
+@[simp]
+def interFinal : σ1 × σ2 → κ := combineProd M1.final M2.final
+
+@[simp]
+def interStep (s : σ1 × σ2) (a : α) : σ1 × σ2 → κ :=
+  combineProd (M1.step s.1 a) (M2.step s.2 a)
+
+@[simps]
+def inter : WNFA₃ α (σ1 × σ2) κ where
+  step := M1.interStep M2
+  start := M1.interStart M2
+  final := M1.interFinal M2
+
+@[simp]
+theorem inter_start_eq_interStart : (M1.inter M2).start = M1.interStart M2 :=
+  rfl
+
+@[simp]
+theorem inter_final_eq_interFinal : (M1.inter M2).final = M1.interFinal M2 :=
+  rfl
+
+@[simp]
+theorem inter_step_eq_interStep : (M1.inter M2).step = M1.interStep M2 :=
+  rfl
+
+variable [Fintype σ1] [Fintype σ2]
+
+theorem stepSet_inter {S1 : σ1 → κ} {S2 : σ2 → κ} {a : α} :
+    (M1.inter M2).stepSet (combineProd S1 S2) a
+    = combineProd (M1.stepSet S1 a) (M2.stepSet S2 a) := by
+  ext ⟨s1, s2⟩
+  simp [stepSet, combineProd]
+  simp [Fintype.sum_mul_sum, Fintype.sum_prod_type]
+  ac_nf
+
+theorem acceptsFrom_inter {S1 : σ1 → κ} {S2 : σ2 → κ} :
+    (M1.inter M2).acceptsFrom (combineProd S1 S2)
+    = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
+  funext x
+  rw [WeightedLanguage.pointwise_prod]
+  induction x generalizing S1 S2 with
+  | nil =>
+    simp [combineProd, Fintype.sum_mul_sum, Fintype.sum_prod_type]
+    ac_nf
+  | cons a x ih =>
+    simp [stepSet_inter, ih]
+
+theorem accepts_inter : (M1.inter M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
+  simp [accepts, acceptsFrom_inter]
+
+end inter
+
 end WNFA₃
