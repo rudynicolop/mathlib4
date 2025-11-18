@@ -815,6 +815,20 @@ variable (M : WNFA₃ α σ κ) [Fintype σ]
 def stepSet (S : σ → κ) (a : α) : σ → κ :=
   ∑ s : σ, (S s * ·) ∘ M.step s a
 
+#loogle ∑ _ : _, _ + _, (∑ _ : _, _) + ∑ _ : _, _
+
+@[simp]
+theorem stepSet_add (S1 S2 : σ → κ) (a : α) :
+    M.stepSet (S1 + S2) a = M.stepSet S1 a + M.stepSet S2 a := by
+  ext s
+  simp [stepSet, W.right_distrib]
+  -- is this true?
+  sorry
+
+theorem stepSet_const_zero {a : α} : M.stepSet 0 a = 0 := by
+  ext s
+  simp [stepSet]
+
 def evalFrom (S : σ → κ) : List α → σ → κ :=
   List.foldl M.stepSet S
 
@@ -844,9 +858,110 @@ theorem acceptsFrom_cons (S : σ → κ) (a : α) (x : List α) :
     M.acceptsFrom S (a :: x) = M.acceptsFrom (M.stepSet S a) x :=
   rfl
 
+theorem acceptsFrom_const_zero :
+    M.acceptsFrom 0 = 0 := by
+  funext x
+  simp only [WeightedLanguage.zero_def_eq]
+  induction x with
+  | nil => simp
+  | cons a x ih => simp [M.stepSet_const_zero, ih]
+
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
+
+section empty
+
+variable (w : κ) [W : Semiring κ]
+
+def empty : WNFA₃ α Unit κ where
+  step := fun _ _ _ ↦ 0
+  start := Function.const Unit w
+  final := Function.const Unit 1
+
+@[simp]
+theorem empty_step : (empty w).step = fun _ (_ : α) _ ↦ 0 :=
+  rfl
+
+@[simp]
+theorem empty_start : (empty (α:=α) w).start = Function.const Unit w :=
+  rfl
+
+@[simp]
+theorem empty_final : (empty (α:=α) w).final = Function.const Unit 1 :=
+  rfl
+
+@[simp]
+theorem stepSet_empty {S : Unit → κ} {a : α} : (empty w).stepSet S a = 0 := by
+  ext ⟨⟩
+  simp [stepSet]
+
+theorem accepts_empty : (empty w).accepts = WeightedLanguage.scalar_prodl (α:=α) w 1 := by
+  funext x
+  simp [accepts, WeightedLanguage.scalar_prodl, WeightedLanguage.one_def_eq]
+  cases x with
+  | nil => simp
+  | cons a x => simp [acceptsFrom_const_zero, WeightedLanguage.zero_def_eq]
+
+end empty
+
+section char
+
+variable (a : α) [DecidableEq α] [W : Semiring κ]
+
+@[simp]
+def charStart (s : Bool) : κ :=
+  if s then 0 else 1
+
+@[simp]
+def charFinal (s : Bool) : κ :=
+  if s then 1 else 0
+
+@[simp]
+def charStep : Bool → α → Bool → κ
+| false, b, true => if decide (b = a) then 1 else 0
+| _, _, _ => 0
+
+def char : WNFA₃ α Bool κ where
+  step := charStep a
+  start := charStart
+  final := charFinal
+
+@[simp]
+theorem char_step : (char a).step = charStep (κ:=κ) a :=
+  rfl
+
+@[simp]
+theorem char_start : (char a).start = charStart (κ:=κ) :=
+  rfl
+
+@[simp]
+theorem char_final : (char a).final = charFinal (κ:=κ) :=
+  rfl
+
+theorem stepSet_char (S : Bool → κ) {b : α} :
+    (char a).stepSet S b = sorry := by
+  sorry
+
+theorem accepts_char : (char a).accepts = fun x ↦ if x = [a] then 1 else 0 := by
+  funext x
+  rw [accepts]
+  cases x with
+  | nil =>
+    simp
+  | cons b x =>
+    by_cases h : b = a
+    · subst b
+      simp [stepSet]
+      unfold Function.comp
+      simp
+      sorry
+    · simp [stepSet]
+      unfold Function.comp
+      simp
+      sorry
+
+end char
 
 section union
 
