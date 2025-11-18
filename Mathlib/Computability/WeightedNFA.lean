@@ -1193,3 +1193,38 @@ theorem accepts_inter : (M1.inter M2).accepts = M1.accepts.pointwise_prod M2.acc
 end inter
 
 end WNFA₃
+
+namespace WDFA
+
+variable {α : Type u} {κ : Type k} {σ : Type v} [W : Semiring κ] [DecidableEq σ]
+
+@[simp]
+def funOfPair (sw : σ × κ) (s : σ) : κ :=
+  if s = sw.1 then sw.2 else 0
+
+@[simps]
+def toWNFA₃ (M : WDFA α σ κ) : WNFA₃ α σ κ where
+  step s a := funOfPair (M.step s a)
+  start := funOfPair M.start
+  final := M.final
+
+variable [Fintype σ]
+
+theorem acceptsFrom_toWNFA₃ (M : WDFA α σ κ) (sw : σ × κ) :
+    M.acceptsFrom sw = M.toWNFA₃.acceptsFrom (funOfPair sw) := by
+  funext x
+  induction x generalizing sw
+  case nil => simp
+  case cons a x ih =>
+    obtain ⟨s, w⟩ := sw
+    rcases hstep : M.step s a with ⟨s', w'⟩
+    simp only [acceptsFrom_cons, ih, WNFA₃.acceptsFrom_cons, WNFA₃.stepSet]
+    congr 1
+    ext q
+    simp [hstep]
+
+theorem accepts_toWNFA₃ (M : WDFA α σ κ) : M.toWNFA₃.accepts = M.accepts := by
+  simp only [WDFA.accepts, WNFA₃.accepts, acceptsFrom_toWNFA₃]
+  rfl
+
+end WDFA
