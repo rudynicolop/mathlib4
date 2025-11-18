@@ -848,4 +848,73 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
 
+section union
+
+variable {σ1 σ2 : Type v} [W : Semiring κ]
+
+def combineSum (S1 : σ1 → κ) (S2 : σ2 → κ) : σ1 ⊕ σ2 → κ
+| .inl s1 => S1 s1
+| .inr s2 => S2 s2
+
+section unionDef
+
+variable (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
+
+@[simp]
+def unionStart : σ1 ⊕ σ2 → κ := combineSum M1.start M2.start
+
+@[simp]
+def unionFinal : σ1 ⊕ σ2 → κ := combineSum M1.final M2.final
+
+@[simp]
+def unionStep : σ1 ⊕ σ2 → α → σ1 ⊕ σ2 → κ
+| .inl s1, a => combineSum (M1.step s1 a) (fun _ ↦ 0)
+| .inr s2, a => combineSum (fun _ ↦ 0) (M2.step s2 a)
+
+def union : WNFA₃ α (σ1 ⊕ σ2) κ where
+  step := unionStep M1 M2
+  start := unionStart M1 M2
+  final := unionFinal M1 M2
+
+end unionDef
+
+instance : HAdd (WNFA₃ α σ1 κ) (WNFA₃ α σ2 κ) (WNFA₃ α (σ1 ⊕ σ2) κ) :=
+  ⟨union⟩
+
+variable {M1 : WNFA₃ α σ1 κ} {M2 : WNFA₃ α σ2 κ}
+
+theorem hadd_eq_union : M1 + M2 = M1.union M2 :=
+  rfl
+
+@[simp]
+theorem unionStart_proj : (M1 + M2).start = M1.unionStart M2 :=
+  rfl
+
+@[simp]
+theorem unionFinal_proj : (M1 + M2).final = M1.unionFinal M2 :=
+  rfl
+
+@[simp]
+theorem unionStep_proj : (M1 + M2).step = M1.unionStep M2 :=
+  rfl
+
+variable [Fintype σ1] [Fintype σ2]
+
+theorem stepSet_hadd {S1 : σ1 → κ} {S2 : σ2 → κ} {a : α} :
+    (M1 + M2).stepSet (combineSum S1 S2) a = combineSum (M1.stepSet S1 a) (M2.stepSet S2 a) := by
+  ext (s1 | s2) <;> simp [stepSet, combineSum]
+
+theorem acceptsFrom_hadd {S1 : σ1 → κ} {S2 : σ2 → κ} :
+    (M1 + M2).acceptsFrom (combineSum S1 S2) = M1.acceptsFrom S1 + M2.acceptsFrom S2 := by
+  funext x
+  rw [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+  induction x generalizing S1 S2 with
+  | nil => simp [combineSum]
+  | cons a x ih => simp [stepSet_hadd, ih]
+
+theorem accepts_hadd : (M1 + M2).accepts = M1.accepts + M2.accepts := by
+  simp [accepts, acceptsFrom_hadd]
+
+end union
+
 end WNFA₃
