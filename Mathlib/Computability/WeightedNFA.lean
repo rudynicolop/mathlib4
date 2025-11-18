@@ -386,6 +386,13 @@ end inter
 
 section concat
 
+variable {α : Type u} {κ : Type k} {σ1 σ2 : Type v} [W : Semiring κ]
+
+variable (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
+
+@[simp]
+def concatStart : Multiset ((σ1 ⊕ σ2) × κ) := M1.start.map (Prod.map Sum.inl id)
+
 end concat
 
 end WNFA
@@ -782,3 +789,63 @@ def reverse_step (M : WNFA₂ α σ κ) (s' : σ) (a : α) : σ →₀ κ :=
 end reverse
 
 end WFA₂
+
+-- Full function version.
+structure WNFA₃ (α : Type u) (σ : Type v) (κ : Type k) where
+  /-- The NFA's transition function -/
+  step : σ → α → σ → κ
+  /-- Initial weights. -/
+  start : σ → κ
+  /-- Final weights. -/
+  final : σ → κ
+
+namespace WNFA₃
+
+variable {α : Type u} {κ : Type k}
+
+section basic
+
+variable {σ : Type v} [W : Semiring κ]
+
+instance : Inhabited (WNFA₃ α σ κ) :=
+  ⟨WNFA₃.mk (fun _ _ ↦ 0) 0 0⟩
+
+variable (M : WNFA₃ α σ κ) [Fintype σ]
+
+def stepSet (S : σ → κ) (a : α) : σ → κ :=
+  ∑ s : σ, (S s * ·) ∘ M.step s a
+
+def evalFrom (S : σ → κ) : List α → σ → κ :=
+  List.foldl M.stepSet S
+
+@[simp]
+theorem evalFrom_nil (S : σ →₀ κ) : M.evalFrom S [] = S :=
+  rfl
+
+@[simp]
+theorem evalFrom_cons (S : σ → κ) (a : α) (x : List α) :
+    M.evalFrom S (a :: x) = M.evalFrom (M.stepSet S a) x :=
+  rfl
+
+@[simp]
+theorem evalFrom_append (S : σ → κ) (x y : List α) :
+    M.evalFrom S (x ++ y) = M.evalFrom (M.evalFrom S x) y := by
+  simp only [evalFrom, List.foldl_append]
+
+def acceptsFrom (S : σ → κ) : WeightedLanguage α κ :=
+  fun x ↦ ∑ s : σ, M.evalFrom S x s * M.final s
+
+@[simp]
+theorem acceptsFrom_nil (S : σ → κ) : M.acceptsFrom S [] = ∑ s : σ, S s * M.final s :=
+  rfl
+
+@[simp]
+theorem acceptsFrom_cons (S : σ → κ) (a : α) (x : List α) :
+    M.acceptsFrom S (a :: x) = M.acceptsFrom (M.stepSet S a) x :=
+  rfl
+
+def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
+
+end basic
+
+end WNFA₃
