@@ -64,13 +64,12 @@ instance : Inhabited (WNFA α σ κ) :=
 variable (M : WNFA α σ κ)
 
 def stepSet (S : Multiset (σ × κ)) (a : α) : Multiset (σ × κ) :=
-  S.bind (fun sw ↦ (Prod.map id (sw.2 * ·)) <$> (M.step sw.1 a))
+  S.bind (fun sw ↦ (M.step sw.1 a).map (Prod.map id (sw.2 * ·)))
 
 theorem mem_stepSet {sw : σ × κ} {S : Multiset (σ × κ)} {a : α} :
-    sw ∈ M.stepSet S a ↔ ∃ tw ∈ S, sw ∈ (Prod.map id (tw.2 * ·)) <$> (M.step tw.1 a) := by
+    sw ∈ M.stepSet S a ↔ ∃ tw ∈ S, sw ∈ (M.step tw.1 a).map (Prod.map id (tw.2 * ·)):= by
   simp [stepSet]
 
-@[simp]
 theorem stepSet_empty (a : α) : M.stepSet ∅ a = ∅ := by simp [stepSet]
 
 @[simp]
@@ -82,8 +81,13 @@ theorem stepSet_cons (a : α) (sw : σ × κ) (S : Multiset (σ × κ)) :
   simp [stepSet]
 
 @[simp]
+theorem stepSet_add (a : α) (S1 S2 : Multiset (σ × κ)) :
+    M.stepSet (S1 + S2) a = M.stepSet S1 a + M.stepSet S2 a := by
+  simp [stepSet]
+
+@[simp]
 theorem stepSet_singleton (sw : σ × κ) (a : α) :
-    M.stepSet {sw} a = (Prod.map id (sw.2 * ·)) <$> (M.step sw.1 a) := by
+    M.stepSet {sw} a = (M.step sw.1 a).map (Prod.map id (sw.2 * ·)) := by
   simp [stepSet]
 
 def evalFrom (S : Multiset (σ × κ)) : List α → Multiset (σ × κ) :=
@@ -246,7 +250,7 @@ lemma toNFA_acceptsFrom {x : List α} {S : Multiset (σ × WithZero Unit)} :
   case nil =>
     simp [getSet_final_exists]
   case cons a x ih =>
-    simp only [NFA.mem_acceptsFrom_cons, toNFA_stepSet, ih]
+    simp only [NFA.cons_mem_acceptsFrom, toNFA_stepSet, ih]
     rfl
 
 theorem toNFA_accepts {x : List α} : x ∈ M.toNFA.accepts ↔ M.accepts x = 1 := by
@@ -380,6 +384,10 @@ theorem accepts_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ} :
 
 end inter
 
+section concat
+
+end concat
+
 end WNFA
 
 namespace WDFA
@@ -430,13 +438,28 @@ noncomputable section stepSet
 variable (M : WNFA₂ α σ κ)
 
 def stepSet (S : σ →₀ κ) (a : α) : σ →₀ κ :=
-  (S.support.val.map
-    (fun s : σ ↦
-      Finsupp.mapRange (S s * ·) (W.mul_zero (S s)) (M.step s a))
-   ).sum
+  ∑ s ∈ S.support, (M.step s a).mapRange (S s * ·) (W.mul_zero (S s))
 
 @[simp]
 theorem stepSet_empty (a : α) : stepSet M 0 a = 0 := by simp [stepSet]
+
+theorem stepSet_single (s : σ) {w : κ} (a : α) (hw : w ≠ 0) :
+    stepSet M (fun₀ | s => w) a = (M.step s a).mapRange (w * ·) (W.mul_zero w) := by
+  simp [stepSet, Finsupp.support_single_ne_zero _ hw]
+
+theorem stepSet_disjoint_add [DecidableEq σ] {S1 S2 : σ →₀ κ} (a : α)
+  (h : Disjoint S1.support S2.support) :
+    stepSet M (S1 + S2) a = stepSet M S1 a + stepSet M S2 a := by
+  ext s
+  simp [stepSet, W.right_distrib]
+  rw [Finsupp.support_add_eq h, ←Finset.disjUnion_eq_union _ _ h, Finset.sum_disjUnion]
+  congr 1 <;> apply Finset.sum_congr rfl
+  · intro s hs1
+    have hs2 := Disjoint.notMem_of_mem_left_finset h hs1
+    simp [Finsupp.notMem_support_iff.mp hs2]
+  · intro s hs2
+    have hs1 := Disjoint.notMem_of_mem_right_finset h hs2
+    simp [Finsupp.notMem_support_iff.mp hs1]
 
 def evalFrom (S : σ →₀ κ) : List α → σ →₀ κ :=
   List.foldl (stepSet M) S
@@ -663,17 +686,9 @@ theorem getMultiset_single [DecidableEq κ] (s : σ) (w : κ) :
     simp [getMultiset]
   · simpa [getMultiset, Finsupp.support_single_ne_zero s hw]
 
-#check Finsupp.support_add_eq
-
-#check Multiset.dedup_map_dedup_eq
-
-#check Multiset.Disjoint.dedup_add
-
-#check Multiset.map_congr
-
 variable [DecidableEq σ]
 
-theorem getMultiset_disjoint_add (S1 S2 : σ →₀ κ) (h : Disjoint S1.support S2.support) :
+theorem getMultiset_disjoint_add {S1 S2 : σ →₀ κ} (h : Disjoint S1.support S2.support) :
     getMultiset (S1 + S2) = getMultiset S1 + getMultiset S2 := by
   simp [getMultiset, Finsupp.support_add_eq h]
   rw [←Multiset.add_eq_union_iff_disjoint.mpr <| Finset.disjoint_val.mpr h]
@@ -688,21 +703,23 @@ theorem getMultiset_disjoint_add (S1 S2 : σ →₀ κ) (h : Disjoint S1.support
 
 variable [DecidableEq κ]
 
-theorem dedup_getMultiset (S : σ →₀ κ) :
-    (getMultiset S).dedup = getMultiset S := by
+theorem Nodup_getMultisetSet (S : σ →₀ κ) : (getMultiset S).Nodup := by
   induction S using Finsupp.induction with
   | zero =>
     simp
   | single_add s w S hdom hw ih =>
-    rw [getMultiset_disjoint_add]
-    · simp [if_neg hw]
-      rw [Multiset.dedup_cons_of_notMem]
-      · simp [ih]
-      · simp [getMultiset]
-        intro hSs
-        have hcontra := Finsupp.notMem_support_iff.mp hdom
-        contradiction
-    · rwa [Finsupp.support_single_ne_zero s hw, Finset.disjoint_singleton_left]
+    rw [getMultiset_disjoint_add
+      (by rwa [Finsupp.support_single_ne_zero s hw, Finset.disjoint_singleton_left])]
+    simp [if_neg hw]
+    refine ⟨?_ , ih⟩
+    simp [getMultiset]
+    intro hSs
+    have hcontra := Finsupp.notMem_support_iff.mp hdom
+    contradiction
+
+theorem dedup_getMultiset (S : σ →₀ κ) :
+    (getMultiset S).dedup = getMultiset S :=
+  Multiset.dedup_eq_self.mpr (Nodup_getMultisetSet S)
 
 @[simp]
 def toWNFAstart : Multiset (σ × κ) :=
@@ -721,46 +738,21 @@ def toWNFA : WNFA α σ κ where
   start := toWNFAstart M
   final := toWNFAfinal M
 
-
-#check Finsupp.support_sum_eq_biUnion
-#check Finsupp.sum.eq_1
--- rw [←Finsupp.sum.eq_1 S (fun s w => Finsupp.mapRange (fun k ↦ w * k) (W.mul_zero w) (M.step s a))]
-
-#check Finsupp.multiset_sum_sum
-
-#loogle Multiset.map _ (Finset.val _)
-
-#check Finset.image_val
-
-#check Multiset.dedup_eq_self
-
-#check Finset.nodup
-
-#loogle Function.onFun
-
-#loogle Finsupp.support, Finsupp.mapRange
-
-#check Finsupp.support_mapRange_of_injective
-#check Finsupp.mapRange.eq_1
-
 theorem stepSet_getMultiset {S : σ →₀ κ} {a : α} :
     (toWNFA M).stepSet (getMultiset S) a = getMultiset (stepSet M S a) := by
-  simp [stepSet, WNFA.stepSet, getMultiset, Multiset.bind_map]
-  rw [Finsupp.support_sum_eq_biUnion]
-  · simp
-    rw [Multiset.Nodup.dedup]
-    · sorry
-    · rw [Multiset.nodup_bind]
-      simp [Finset.nodup]
-      apply fun x => Multiset.Nodup.pairwise x <| Finset.nodup _
-      intro s1 hs1 s2 hs2 hneq
-      simp
-      -- this seems invalid...
-      sorry
-  ·
+  induction S using Finsupp.induction with
+  | zero =>
+    simp
+  | single_add s w S hdom hw ih =>
+    have hdisj : Disjoint (fun₀ | s => w).support S.support := by
+      rwa [Finsupp.support_single_ne_zero s hw, Finset.disjoint_singleton_left]
+    rw [getMultiset_disjoint_add hdisj]
+    simp [if_neg hw, ih]; clear ih
+    rw [stepSet_disjoint_add _ _ hdisj]
+    rw [stepSet_single _ _ _ hw]
+    simp only [getMultiset, stepSet]
+    simp
     sorry
-
-#check Finset.image_val
 
 theorem acceptsFrom_toWNFA {S : σ →₀ κ} :
     (toWNFA M).acceptsFrom (getMultiset S) = acceptsFrom M S := by
