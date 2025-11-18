@@ -880,6 +880,91 @@ def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
 
+section toNFA
+
+/- ### Weighted to unweighted NFA
+
+We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bool` uses `xor`, not
+`or`. Instead we use a type isomorphic to `Bool`.
+
+-/
+
+variable {σ : Type} (M : WNFA₃ α σ (WithZero Unit))
+
+-- TODO: factor out
+@[simp]
+lemma wzu_add_eq_one (x y : WithZero Unit) :
+    x + y = 1 ↔ (x = 1 ∨ y = 1) := by
+  rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
+  rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
+
+-- TODO: factor out
+@[simp]
+lemma wzu_mul_eq_one (x y : WithZero Unit) :
+    x * y = 1 ↔ (x = 1 ∧ y = 1) := by
+  rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
+  rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
+
+private def getSet (S : σ → WithZero Unit) : Set σ :=
+  { s | S s = 1 }
+
+@[simp]
+private theorem getSet_zero : getSet (0 : σ → WithZero Unit) = ∅ := by
+  simp [getSet]
+
+@[simp]
+private theorem getSet_add (S1 S2 : σ → WithZero Unit) :
+    getSet (S1 + S2) = getSet S1 ∪ getSet S2 := by
+  ext q
+  simp [getSet]
+
+@[simp]
+def toNFAStart : Set σ := getSet M.start
+
+@[simp]
+def toNFAAccept : Set σ := getSet M.final
+
+@[simp]
+def toNFAStep (s : σ) (a : α) : Set σ := getSet <| M.step s a
+
+@[simps]
+def toNFA : NFA α σ where
+  step := M.toNFAStep
+  start := M.toNFAStart
+  accept := M.toNFAAccept
+
+variable [DecidableEq σ]
+
+theorem exists_sum_Finset_eq_one {S : Finset σ} {f : σ → WithZero Unit} :
+    (∃ s ∈ S, f s = 1) ↔ ∑ s ∈ S, f s = 1 := by
+  induction S using Finset.induction with
+  | empty => simp
+  | insert q S hq ih => simp [Finset.sum_insert hq, ih]
+
+variable [Fintype σ]
+
+theorem exists_sum_Fintype_eq_one {f : σ → WithZero Unit} :
+    (∃ s, f s = 1) ↔ ∑ s : σ, f s = 1 := by
+  simp [←exists_sum_Finset_eq_one]
+
+lemma toNFA_stepSet {S : σ → WithZero Unit} {a : α} :
+    M.toNFA.stepSet (getSet S) a = getSet (M.stepSet S a) := by
+  ext s
+  simp [NFA.stepSet, stepSet, getSet, ←exists_sum_Fintype_eq_one]
+
+lemma toNFA_acceptsFrom {x : List α} {S : σ → WithZero Unit} :
+    x ∈ M.toNFA.acceptsFrom (getSet S) ↔ M.acceptsFrom S x = 1 := by
+  induction x generalizing S
+  case nil => simp [getSet, ←exists_sum_Fintype_eq_one]
+  case cons a x ih =>
+    simp only [NFA.cons_mem_acceptsFrom, toNFA_stepSet, ih]
+    rfl
+
+theorem toNFA_accepts {x : List α} : x ∈ M.toNFA.accepts ↔ M.accepts x = 1 := by
+  apply toNFA_acceptsFrom
+
+end toNFA
+
 section empty
 
 variable (w : κ) [W : Semiring κ]
