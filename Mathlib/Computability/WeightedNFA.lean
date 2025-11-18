@@ -815,16 +815,13 @@ variable (M : WNFA₃ α σ κ) [Fintype σ]
 def stepSet (S : σ → κ) (a : α) : σ → κ :=
   ∑ s : σ, (S s * ·) ∘ M.step s a
 
-#loogle ∑ _ : _, _ + _, (∑ _ : _, _) + ∑ _ : _, _
-
 @[simp]
 theorem stepSet_add (S1 S2 : σ → κ) (a : α) :
     M.stepSet (S1 + S2) a = M.stepSet S1 a + M.stepSet S2 a := by
   ext s
-  simp [stepSet, W.right_distrib]
-  -- is this true?
-  sorry
+  simp [stepSet, W.right_distrib, Finset.sum_add_distrib]
 
+@[simp]
 theorem stepSet_const_zero {a : α} : M.stepSet 0 a = 0 := by
   ext s
   simp [stepSet]
@@ -833,7 +830,7 @@ def evalFrom (S : σ → κ) : List α → σ → κ :=
   List.foldl M.stepSet S
 
 @[simp]
-theorem evalFrom_nil (S : σ →₀ κ) : M.evalFrom S [] = S :=
+theorem evalFrom_nil (S : σ → κ) : M.evalFrom S [] = S :=
   rfl
 
 @[simp]
@@ -845,6 +842,13 @@ theorem evalFrom_cons (S : σ → κ) (a : α) (x : List α) :
 theorem evalFrom_append (S : σ → κ) (x y : List α) :
     M.evalFrom S (x ++ y) = M.evalFrom (M.evalFrom S x) y := by
   simp only [evalFrom, List.foldl_append]
+
+@[simp]
+theorem evalFrom_add (S1 S2 : σ → κ) (x : List α) :
+    M.evalFrom (S1 + S2) x = M.evalFrom S1 x + M.evalFrom S2 x := by
+  induction x generalizing S1 S2 with
+  | nil => simp
+  | cons a x ih => simp [ih]
 
 def acceptsFrom (S : σ → κ) : WeightedLanguage α κ :=
   fun x ↦ ∑ s : σ, M.evalFrom S x s * M.final s
@@ -858,6 +862,12 @@ theorem acceptsFrom_cons (S : σ → κ) (a : α) (x : List α) :
     M.acceptsFrom S (a :: x) = M.acceptsFrom (M.stepSet S a) x :=
   rfl
 
+@[simp]
+theorem acceptsFrom_add (S1 S2 : σ → κ) (x : List α) :
+    M.acceptsFrom (S1 + S2) x = M.acceptsFrom S1 x + M.acceptsFrom S2 x := by
+  simp [acceptsFrom, W.right_distrib, Finset.sum_add_distrib]
+
+@[simp]
 theorem acceptsFrom_const_zero :
     M.acceptsFrom 0 = 0 := by
   funext x
@@ -880,7 +890,7 @@ def empty : WNFA₃ α Unit κ where
   final := Function.const Unit 1
 
 @[simp]
-theorem empty_step : (empty w).step = fun _ (_ : α) _ ↦ 0 :=
+theorem empty_step : (empty (α:=α) w).step = fun _ (_ : α) _ ↦ 0 :=
   rfl
 
 @[simp]
@@ -892,16 +902,16 @@ theorem empty_final : (empty (α:=α) w).final = Function.const Unit 1 :=
   rfl
 
 @[simp]
-theorem stepSet_empty {S : Unit → κ} {a : α} : (empty w).stepSet S a = 0 := by
+theorem stepSet_empty {S : Unit → κ} {a : α} : (empty (α:=α) w).stepSet S a = 0 := by
   ext ⟨⟩
   simp [stepSet]
 
-theorem accepts_empty : (empty w).accepts = WeightedLanguage.scalar_prodl (α:=α) w 1 := by
+theorem accepts_empty : (empty (α:=α) w).accepts = WeightedLanguage.scalar_prodl (α:=α) w 1 := by
   funext x
   simp [accepts, WeightedLanguage.scalar_prodl, WeightedLanguage.one_def_eq]
   cases x with
   | nil => simp
-  | cons a x => simp [acceptsFrom_const_zero, WeightedLanguage.zero_def_eq]
+  | cons a x => simp [WeightedLanguage.zero_def_eq]
 
 end empty
 
@@ -928,38 +938,40 @@ def char : WNFA₃ α Bool κ where
   final := charFinal
 
 @[simp]
-theorem char_step : (char a).step = charStep (κ:=κ) a :=
+theorem char_step : (char (κ:=κ) a).step = charStep (κ:=κ) a :=
   rfl
 
 @[simp]
-theorem char_start : (char a).start = charStart (κ:=κ) :=
+theorem char_start : (char (κ:=κ) a).start = charStart (κ:=κ) :=
   rfl
 
 @[simp]
-theorem char_final : (char a).final = charFinal (κ:=κ) :=
+theorem char_final : (char (κ:=κ) a).final = charFinal (κ:=κ) :=
   rfl
 
-theorem stepSet_char (S : Bool → κ) {b : α} :
-    (char a).stepSet S b = sorry := by
-  sorry
+@[simp]
+theorem charStep_zero :
+    charStep (κ:=κ) a true = Function.const α (Function.const Bool (0 : κ)) := by
+  ext b s
+  simp
 
-theorem accepts_char : (char a).accepts = fun x ↦ if x = [a] then 1 else 0 := by
+theorem accepts_char : (char (κ:=κ) a).accepts = fun x ↦ if x = [a] then (1 : κ) else (0 : κ) := by
   funext x
   rw [accepts]
   cases x with
   | nil =>
     simp
   | cons b x =>
-    by_cases h : b = a
-    · subst b
-      simp [stepSet]
-      unfold Function.comp
-      simp
-      sorry
-    · simp [stepSet]
-      unfold Function.comp
-      simp
-      sorry
+    cases x with
+    | nil =>
+      by_cases h : b = a <;>
+      simp [stepSet, show (fun x ↦ x) = id by rfl]
+    | cons c x =>
+      by_cases hba : b = a <;>
+      suffices h : (0 : List α → κ) x = (0 : κ) by
+        { simpa [stepSet, show (fun x ↦ x) = id by rfl,
+          show (fun x ↦ (0 : κ)) = Function.const κ 0 by rfl] } <;>
+      rfl
 
 end char
 
