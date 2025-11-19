@@ -826,6 +826,11 @@ theorem stepSet_const_zero {a : α} : M.stepSet 0 a = 0 := by
   ext s
   simp [stepSet]
 
+theorem stepSet_compose_mul (w : κ) (S : σ → κ) (a : α) :
+    M.stepSet ((w * ·) ∘ S) a = (w * ·) ∘ M.stepSet S a := by
+  ext s
+  simp [stepSet, Finset.mul_sum, W.mul_assoc]
+
 def evalFrom (S : σ → κ) : List α → σ → κ :=
   List.foldl M.stepSet S
 
@@ -863,9 +868,11 @@ theorem acceptsFrom_cons (S : σ → κ) (a : α) (x : List α) :
   rfl
 
 @[simp]
-theorem acceptsFrom_add (S1 S2 : σ → κ) (x : List α) :
-    M.acceptsFrom (S1 + S2) x = M.acceptsFrom S1 x + M.acceptsFrom S2 x := by
-  simp [acceptsFrom, W.right_distrib, Finset.sum_add_distrib]
+theorem acceptsFrom_add (S1 S2 : σ → κ) :
+    M.acceptsFrom (S1 + S2) = M.acceptsFrom S1 + M.acceptsFrom S2 := by
+  funext x
+  simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def, acceptsFrom, W.right_distrib,
+    Finset.sum_add_distrib]
 
 @[simp]
 theorem acceptsFrom_const_zero :
@@ -875,6 +882,25 @@ theorem acceptsFrom_const_zero :
   induction x with
   | nil => simp
   | cons a x ih => simp [M.stepSet_const_zero, ih]
+
+theorem acceptsFrom_sum {ι : Type*} [DecidableEq ι] (I : Finset ι) (f : ι → σ → κ) :
+    M.acceptsFrom (∑ i ∈ I, f i) = ∑ i ∈ I, M.acceptsFrom (f i) := by
+  funext x
+  induction I using Finset.induction with
+  | empty => simp [show (0 : List α → κ) x = (0 : κ) by rfl]
+  | insert i I hi ih =>
+    simp [Finset.sum_insert hi, WeightedLanguage.add_def_eq, WeightedLanguage.add_def, ih]
+
+theorem acceptsFrom_sum_Fintype {ι : Type*} [DecidableEq ι] [Fintype ι] (f : ι → σ → κ) :
+    M.acceptsFrom (∑ i : ι, f i) = ∑ i : ι, M.acceptsFrom (f i) := by
+  rw [acceptsFrom_sum]
+
+theorem acceptsFrom_compose_mul (w : κ) (S : σ → κ) :
+    M.acceptsFrom ((w * ·) ∘ S) = (w * ·) ∘ M.acceptsFrom S := by
+  funext x
+  induction x generalizing w S with
+  | nil => simp [Finset.mul_sum, W.mul_assoc]
+  | cons a x ih => simp [stepSet_compose_mul, ih]
 
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
@@ -1197,20 +1223,24 @@ section concat
 variable {σ1 σ2 : Type v}
 
 @[simp]
-theorem combine_apply_inl {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ1} :
+theorem combineSum_apply_inl {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ1} :
     combineSum S1 S2 (Sum.inl s) = S1 s :=
   rfl
 
 @[simp]
-theorem combine_apply_inr {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ2} :
+theorem combineSum_apply_inr {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ2} :
     combineSum S1 S2 (Sum.inr s) = S2 s :=
   rfl
 
 variable [W : CommSemiring κ] [Fintype σ1] [Fintype σ2] (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
 
+theorem combineSum_separate {S1 : σ1 → κ} {S2 : σ2 → κ} :
+    combineSum S1 S2 = combineSum S1 0 + combineSum 0 S2 := by
+  ext (s1 | s2) <;> simp
+
 @[simp]
 def concatStart : σ1 ⊕ σ2 → κ :=
-  combineSum M1.start ((M1.accepts [] * ·) ∘ M2.start)
+  combineSum M1.start 0
 
 @[simp]
 def concatFinal : σ1 ⊕ σ2 → κ :=
@@ -1223,7 +1253,7 @@ def concatStep : σ1 ⊕ σ2 → α → σ1 ⊕ σ2 → κ
 
 def concat : WNFA₃ α (σ1 ⊕ σ2) κ where
   step := M1.concatStep M2
-  start := M1.concatStart M2
+  start := M1.concatStart
   final := M1.concatFinal M2
 
 instance : HMul (WNFA₃ α σ1 κ) (WNFA₃ α σ2 κ) (WNFA₃ α (σ1 ⊕ σ2) κ) :=
@@ -1237,7 +1267,7 @@ theorem hmul_concat_step : (M1 * M2).step = M1.concatStep M2 := by
   rfl
 
 @[simp]
-theorem hmul_concat_start : (M1 * M2).start = M1.concatStart M2 := by
+theorem hmul_concat_start : (M1 * M2).start = M1.concatStart := by
   rfl
 
 @[simp]
@@ -1255,30 +1285,51 @@ theorem acceptsFrom_hmul_inr {S2 : σ2 → κ} :
   | nil => simp [combineSum]
   | cons a y ih => simp [stepSet_hmul_inr, ih]
 
-#loogle (∑ _ : _, _) * ∑ _ : _, _
+variable [DecidableEq σ1] [DecidableEq σ2]
 
-#check Fintype.sum_mul_sum
+#check acceptsFrom_compose_mul
 
 theorem acceptsFrom_hmul {S1 : σ1 → κ} :
-    (M1 * M2).acceptsFrom (combineSum S1 ((M1.accepts [] * ·) ∘ M2.start))
+    (M1 * M2).acceptsFrom (combineSum S1 0)
     = M1.acceptsFrom S1 * M2.accepts := by
   funext z
   rw [WeightedLanguage.mul_def_eq, WeightedLanguage.cauchy_prod]
   unfold Function.comp
   induction z generalizing S1 with
   | nil =>
-    simp
-    -- rw [Fintype.sum_mul_sum]
-    sorry
+    simp [Finset.sum_mul, W.mul_assoc]
   | cons a z ih =>
-    simp [stepSet]
+    rw [acceptsFrom_cons, stepSet, acceptsFrom_sum]
+    suffices hbruh :
+      (∑ i, (M1 * M2).acceptsFrom ((fun x ↦ combineSum S1 0 i * x) ∘ (M1 * M2).step i a) z) =
+      (List.map (fun x ↦ M1.acceptsFrom S1 x.1 * M2.accepts x.2) (a :: z).splits).sum by {
+      rw [←hbruh]
+      apply Finset.sum_apply
+    }
+    simp [acceptsFrom_compose_mul]
     unfold Function.comp
-    sorry
+    conv_lhs => {
+      arg 2
+      ext s
+      rw [combineSum_separate, acceptsFrom_add]
+      rw [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+      rw [ih, acceptsFrom_hmul_inr]
+    }
+    simp [W.left_distrib, Finset.sum_add_distrib]
+    rw [W.add_comm]
+    congr 1
+    · simp [accepts, Finset.sum_mul, stepSet]
+      congr 1
+      ext q
+      rw [W.mul_assoc]
+      congr 1
+      -- TODO: should work, need to make compose...
+      -- rw [acceptsFrom_compose_mul M2 (M1.final q)]
+      sorry
+    · sorry
 
 theorem accepts_hmul : (M1 * M2).accepts = M1.accepts * M2.accepts := by
-  funext x
-  simp [accepts]
-  sorry
+  simp [accepts, acceptsFrom_hmul]
 
 end concat
 
