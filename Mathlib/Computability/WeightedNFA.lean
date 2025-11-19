@@ -1248,8 +1248,10 @@ def concatFinal : σ1 ⊕ σ2 → κ :=
 
 @[simp]
 def concatStep : σ1 ⊕ σ2 → α → σ1 ⊕ σ2 → κ
-| .inl s1, a => combineSum (M1.step s1 a) ((M1.final s1 * ·) ∘ ∑ s2 : σ2, M2.step s2 a)
-| .inr s2, a => combineSum 0 (M2.step s2 a)
+| .inl s1, a =>
+  combineSum (M1.step s1 a) ((M1.final s1 * ·) ∘ ∑ s2 : σ2, (M2.start s2 * ·) ∘ M2.step s2 a)
+| .inr s2, a =>
+  combineSum 0 (M2.step s2 a)
 
 def concat : WNFA₃ α (σ1 ⊕ σ2) κ where
   step := M1.concatStep M2
@@ -1290,8 +1292,7 @@ variable [DecidableEq σ1] [DecidableEq σ2]
 variable [DecidableEq α]
 
 theorem acceptsFrom_hmul {S1 : σ1 → κ} :
-    (M1 * M2).acceptsFrom (combineSum S1 0)
-    = M1.acceptsFrom S1 * M2.accepts := by
+    (M1 * M2).acceptsFrom (combineSum S1 0) = M1.acceptsFrom S1 * M2.accepts := by
   funext z
   rw [WeightedLanguage.mul_def_eq, WeightedLanguage.cauchy_prod]
   unfold Function.comp
@@ -1324,9 +1325,6 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
       rw [W.mul_assoc]
       congr 1
       simp only [acceptsFrom_sum, acceptsFrom_compose_mul, Function.comp_apply]
-      congr 1
-      -- this subgoal is incorrect... :(
-      sorry
     · unfold Function.comp
       simp only [acceptsFrom_cons, stepSet]
       simp only [acceptsFrom_sum, acceptsFrom_compose_mul]
