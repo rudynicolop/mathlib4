@@ -1287,7 +1287,7 @@ theorem acceptsFrom_hmul_inr {S2 : σ2 → κ} :
 
 variable [DecidableEq σ1] [DecidableEq σ2]
 
-#check acceptsFrom_compose_mul
+variable [DecidableEq α]
 
 theorem acceptsFrom_hmul {S1 : σ1 → κ} :
     (M1 * M2).acceptsFrom (combineSum S1 0)
@@ -1307,7 +1307,6 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
       apply Finset.sum_apply
     }
     simp [acceptsFrom_compose_mul]
-    unfold Function.comp
     conv_lhs => {
       arg 2
       ext s
@@ -1315,6 +1314,7 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
       rw [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
       rw [ih, acceptsFrom_hmul_inr]
     }
+    clear ih
     simp [W.left_distrib, Finset.sum_add_distrib]
     rw [W.add_comm]
     congr 1
@@ -1323,10 +1323,31 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
       ext q
       rw [W.mul_assoc]
       congr 1
-      -- TODO: should work, need to make compose...
-      -- rw [acceptsFrom_compose_mul M2 (M1.final q)]
+      simp only [acceptsFrom_sum, acceptsFrom_compose_mul, Function.comp_apply]
+      congr 1
+      -- this subgoal is incorrect... :(
       sorry
-    · sorry
+    · unfold Function.comp
+      simp only [acceptsFrom_cons, stepSet]
+      simp only [acceptsFrom_sum, acceptsFrom_compose_mul]
+      suffices hbruh :
+        ∑ s1 : σ1,
+          S1 s1 *
+          (List.map (fun x ↦ M1.acceptsFrom (M1.step s1 a) x.1 * M2.accepts x.2) z.splits).sum
+        = (List.map
+          (fun x ↦ ∑ s1 : σ1,
+            S1 s1 * M1.acceptsFrom (M1.step s1 a) x.1 * M2.accepts x.2) z.splits).sum by {
+        rw [hbruh]
+        congr
+        ext x
+        rw [←Finset.sum_mul]
+        congr
+        symm
+        apply Fintype.sum_apply
+      }
+      simp [Finset.sum_list_map_count, Finset.mul_sum]
+      rw [Finset.sum_comm]
+      ac_nf
 
 theorem accepts_hmul : (M1 * M2).accepts = M1.accepts * M2.accepts := by
   simp [accepts, acceptsFrom_hmul]
