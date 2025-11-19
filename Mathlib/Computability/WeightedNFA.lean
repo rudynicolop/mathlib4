@@ -1192,6 +1192,96 @@ theorem accepts_inter : (M1.inter M2).accepts = M1.accepts.pointwise_prod M2.acc
 
 end inter
 
+section concat
+
+variable {σ1 σ2 : Type v}
+
+@[simp]
+theorem combine_apply_inl {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ1} :
+    combineSum S1 S2 (Sum.inl s) = S1 s :=
+  rfl
+
+@[simp]
+theorem combine_apply_inr {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ2} :
+    combineSum S1 S2 (Sum.inr s) = S2 s :=
+  rfl
+
+variable [W : CommSemiring κ] [Fintype σ1] [Fintype σ2] (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
+
+@[simp]
+def concatStart : σ1 ⊕ σ2 → κ :=
+  combineSum M1.start ((M1.accepts [] * ·) ∘ M2.start)
+
+@[simp]
+def concatFinal : σ1 ⊕ σ2 → κ :=
+  combineSum ((· * M2.accepts []) ∘ M1.final) M2.final
+
+@[simp]
+def concatStep : σ1 ⊕ σ2 → α → σ1 ⊕ σ2 → κ
+| .inl s1, a => combineSum (M1.step s1 a) ((M1.final s1 * ·) ∘ ∑ s2 : σ2, M2.step s2 a)
+| .inr s2, a => combineSum 0 (M2.step s2 a)
+
+def concat : WNFA₃ α (σ1 ⊕ σ2) κ where
+  step := M1.concatStep M2
+  start := M1.concatStart M2
+  final := M1.concatFinal M2
+
+instance : HMul (WNFA₃ α σ1 κ) (WNFA₃ α σ2 κ) (WNFA₃ α (σ1 ⊕ σ2) κ) :=
+  ⟨concat⟩
+
+theorem hmul_eq_concat : M1 * M2 = M1.concat M2 := by
+  rfl
+
+@[simp]
+theorem hmul_concat_step : (M1 * M2).step = M1.concatStep M2 := by
+  rfl
+
+@[simp]
+theorem hmul_concat_start : (M1 * M2).start = M1.concatStart M2 := by
+  rfl
+
+@[simp]
+theorem hmul_concat_final : (M1 * M2).final = M1.concatFinal M2 := by
+  rfl
+
+theorem stepSet_hmul_inr {S2 : σ2 → κ} {a : α} :
+    (M1 * M2).stepSet (combineSum 0 S2) a = combineSum 0 (M2.stepSet S2 a) := by
+  ext (s1 | s2) <;> simp [stepSet, combineSum]
+
+theorem acceptsFrom_hmul_inr {S2 : σ2 → κ} :
+    (M1 * M2).acceptsFrom (combineSum 0 S2) = M2.acceptsFrom S2 := by
+  funext y
+  induction y generalizing S2 with
+  | nil => simp [combineSum]
+  | cons a y ih => simp [stepSet_hmul_inr, ih]
+
+#loogle (∑ _ : _, _) * ∑ _ : _, _
+
+#check Fintype.sum_mul_sum
+
+theorem acceptsFrom_hmul {S1 : σ1 → κ} :
+    (M1 * M2).acceptsFrom (combineSum S1 ((M1.accepts [] * ·) ∘ M2.start))
+    = M1.acceptsFrom S1 * M2.accepts := by
+  funext z
+  rw [WeightedLanguage.mul_def_eq, WeightedLanguage.cauchy_prod]
+  unfold Function.comp
+  induction z generalizing S1 with
+  | nil =>
+    simp
+    -- rw [Fintype.sum_mul_sum]
+    sorry
+  | cons a z ih =>
+    simp [stepSet]
+    unfold Function.comp
+    sorry
+
+theorem accepts_hmul : (M1 * M2).accepts = M1.accepts * M2.accepts := by
+  funext x
+  simp [accepts]
+  sorry
+
+end concat
+
 end WNFA₃
 
 namespace WDFA
