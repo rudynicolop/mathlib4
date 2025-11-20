@@ -119,7 +119,7 @@ section toWNFA
 def states : WRegExp α κ → Type
 | weight _ => Unit
 | char _ => Bool
-| P + Q => P.states ⊕ Q.states
+| P + Q
 | P * Q => P.states ⊕ Q.states
 
 @[simp]
@@ -138,15 +138,23 @@ theorem states_plus_sum (P Q : WRegExp α κ) : (P + Q).states = (P.states ⊕ Q
 theorem states_comp_sum (P Q : WRegExp α κ) : (P * Q).states = (P.states ⊕ Q.states) :=
   rfl
 
-#check Bool.decEq
-
 def statesDecEq : ∀ (r : WRegExp α κ) (s1 s2 : r.states), Decidable (s1 = s2)
 | weight w =>
-  cast (α:=∀ (s1 s2 : Unit), Decidable (s1 = s2)) sorry sorry
+  cast (α:=∀ (s1 s2 : Unit), Decidable (s1 = s2)) (by simp) inferInstance
 | char a =>
-  cast (α:=∀ (s1 s2 : Bool), Decidable (s1 = s2)) sorry Bool.decEq
-| plus P Q => sorry
-| comp P Q => sorry
+  cast (α:=∀ (s1 s2 : Bool), Decidable (s1 = s2)) (by simp) Bool.decEq
+| P + Q | P * Q =>
+  cast (α:=∀ (s1 s2 : P.states ⊕ Q.states), Decidable (s1 = s2)) (by simp) <|
+    fun | .inl s1, .inl s2 =>
+          match P.statesDecEq s1 s2 with
+          | isTrue rfl => isTrue rfl
+          | isFalse h => isFalse <| fun hinl ↦ h <| Sum.inl_injective hinl
+        | .inr s1, .inr s2 =>
+          match Q.statesDecEq s1 s2 with
+          | isTrue rfl => isTrue rfl
+          | isFalse h => isFalse <| fun hinr ↦ h <| Sum.inr_injective hinr
+        | .inl _, .inr _ => isFalse (by rintro ⟨⟩)
+        | .inr _, .inl _ => isFalse (by rintro ⟨⟩)
 
 instance instDeciableEqStates {r : WRegExp α κ} : DecidableEq r.states := r.statesDecEq
 
