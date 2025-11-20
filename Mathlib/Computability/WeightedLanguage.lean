@@ -384,4 +384,11 @@ instance instSemiring [Semiring κ] : Semiring (WeightedLanguage α κ) where
   mul_one := cauchy_prod_one
   nsmul := nsmul_def
 
+section rev
+
+@[simp]
+def rev (f : WeightedLanguage α κ) : WeightedLanguage α κ := f ∘ List.reverse
+
+end rev
+
 end WeightedLanguage
