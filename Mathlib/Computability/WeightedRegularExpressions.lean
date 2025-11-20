@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
 import Mathlib.Computability.WeightedLanguage
+import Mathlib.Computability.WeightedNFA
 
 /-!
 # Weighted Regular Expressions
@@ -153,10 +154,46 @@ def statesDecEq : ∀ (r : WRegExp α κ) (s1 s2 : r.states), Decidable (s1 = s2
           match Q.statesDecEq s1 s2 with
           | isTrue rfl => isTrue rfl
           | isFalse h => isFalse <| fun hinr ↦ h <| Sum.inr_injective hinr
-        | .inl _, .inr _ => isFalse (by rintro ⟨⟩)
-        | .inr _, .inl _ => isFalse (by rintro ⟨⟩)
+        | .inl _, .inr _ | .inr _, .inl _ => isFalse (by rintro ⟨⟩)
 
 instance instDeciableEqStates {r : WRegExp α κ} : DecidableEq r.states := r.statesDecEq
+
+@[simp]
+def statesElems : ∀ (r : WRegExp α κ), Finset r.states
+| weight w => cast (α:=Finset Unit) (by simp) Finset.univ
+| char a => cast (α:=Finset Bool) (by simp) Finset.univ
+| P + Q | P * Q =>
+  cast (α:= Finset (P.states ⊕ Q.states)) (by simp) <|
+    P.statesElems.disjSum Q.statesElems
+
+theorem statesElems_complete (r : WRegExp α κ) (s : r.states) : s ∈ r.statesElems := by
+  revert s
+  induction r with
+  | weight w => simp
+  | char a => simp
+  | plus P Q ihp ihq => simp; constructor <;> assumption
+  | comp P Q ihp ihq => simp; constructor <;> assumption
+
+instance instFintypeStates {r : WRegExp α κ} : Fintype r.states where
+  elems := r.statesElems
+  complete := r.statesElems_complete
+
+variable [DecidableEq α] [W : Semiring κ]
+
+@[simp]
+def toWNFA : ∀ (r : WRegExp α κ), WNFA₃ α r.states κ
+| weight w => WNFA₃.empty w
+| char a => WNFA₃.char a
+| P + Q => P.toWNFA + Q.toWNFA
+| P * Q => P.toWNFA * Q.toWNFA
+
+theorem accepts_toWNFA (r : WRegExp α κ) :
+    r.toWNFA.accepts = r.matches' := by
+  induction r with
+  | weight w => simp [WNFA₃.accepts_empty]
+  | char a => simp [WNFA₃.accepts_char]
+  | plus P Q ihp ihq => simp [WNFA₃.accepts_hadd, ihp, ihq]
+  | comp P Q ihp ihq => simp [WNFA₃.accepts_hmul, ihp, ihq]
 
 end toWNFA
 
