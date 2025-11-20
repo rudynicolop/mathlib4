@@ -1352,6 +1352,93 @@ theorem accepts_hmul : (M1 * M2).accepts = M1.accepts * M2.accepts := by
 
 end concat
 
+section reverse
+
+variable {σ : Type v} (M : WNFA₃ α σ κ)
+
+@[simp]
+def revStart : σ → κ := M.final
+
+@[simp]
+def revFinal : σ → κ := M.start
+
+@[simp]
+def revStep (s : σ) (a : α) (s' : σ) : κ := M.step s' a s
+
+def rev : WNFA₃ α σ κ where
+  step := M.revStep
+  start := M.revStart
+  final := M.revFinal
+
+@[simp]
+theorem rev_step_eq_revStep : M.rev.step = M.revStep :=
+  rfl
+
+@[simp]
+theorem rev_start_eq_revStart : M.rev.start = M.revStart :=
+  rfl
+
+@[simp]
+theorem rev_final_eq_revFinal : M.rev.final = M.revFinal :=
+  rfl
+
+variable [W : CommSemiring κ] [Fintype σ]
+
+def revStepSet (S : σ → κ) (a : α) : σ → κ :=
+  ∑ s : σ, (· * S s) ∘ M.revStep s a
+
+@[simp]
+theorem rev_stepSet_eq_revStepSet :
+    M.rev.stepSet = M.revStepSet := by
+  ext S a s
+  simp [stepSet, revStepSet]
+  ac_nf
+
+def revEvalFrom : (σ → κ) → List α → σ → κ := List.foldl M.revStepSet
+
+@[simp]
+theorem revEvalFrom_nil {S : σ → κ} : M.revEvalFrom S [] = S :=
+  rfl
+
+@[simp]
+theorem revEvalFrom_cons {S : σ → κ} {a : α} (x : List α) :
+    M.revEvalFrom S (a :: x) = M.revEvalFrom (M.revStepSet S a) x :=
+  rfl
+
+@[simp]
+theorem rev_evalFrom_eq_revEvalFrom :
+    M.rev.evalFrom = M.revEvalFrom := by
+  ext S
+  simp [revEvalFrom, evalFrom]
+
+def revAcceptsFrom (S : σ → κ) : WeightedLanguage α κ :=
+  fun x ↦ ∑ s : σ, M.start s * M.revEvalFrom S x s
+
+@[simp]
+theorem rev_acceptsFrom_eq_revAcceptsFrom :
+    M.rev.acceptsFrom = M.revAcceptsFrom := by
+  ext S
+  funext x
+  simp [acceptsFrom, revAcceptsFrom]
+  ac_nf
+
+theorem sum_revEvalFrom_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
+    ∑ s : σ, M.revEvalFrom S2 x s * S1 s = ∑ s : σ, M.evalFrom S1 x.reverse s * S2 s := by
+  induction x generalizing S1 S2 with
+  | nil =>
+    simp
+    ac_nf
+  | cons a x ih =>
+    simp [revStepSet, stepSet, ih, Finset.mul_sum, Finset.sum_mul]
+    rw [Finset.sum_comm]
+    ac_nf
+
+theorem accepts_rev : M.rev.accepts = M.accepts.rev := by
+  funext x
+  simp [accepts, acceptsFrom, sum_revEvalFrom_evalFrom_reverse]
+
+end reverse
+
 end WNFA₃
 
 namespace WDFA
