@@ -111,45 +111,45 @@ theorem matches'_pow (P : WRegExp α κ) (n : ℕ) : (P ^ n).matches' = P.matche
     simp only [pow_succ, ←ih]
     rfl
 
-def matchEpsilon : WRegExp α κ → κ
-  | char _ => 0
-  | weight w => w
-  | P + Q => P.matchEpsilon + Q.matchEpsilon
-  | P * Q => P.matchEpsilon * Q.matchEpsilon
-
-/-- `P.deriv a` matches `x` if `P` matches `a :: x`, the Brzozowski derivative of `P` with respect
-  to `a` -/
-def deriv : WRegExp α κ → α → WRegExp α κ
-  | weight _, _ => 0
-  | char a₁, a₂ => if a₁ = a₂ then 1 else 0
-  | P + Q, a => deriv P a + deriv Q a
-  | P * Q, a => deriv P a * Q + weight P.matchEpsilon * deriv Q a
-
-@[simp]
-theorem deriv_zero (a : α) : deriv 0 a = (0 : WRegExp α κ) :=
-  rfl
-
-@[simp]
-theorem deriv_one (a : α) : deriv 1 a = (0 : WRegExp α κ) :=
-  rfl
-
-@[simp]
-theorem deriv_char_self (a : α) : deriv (char a) a = (1 : WRegExp α κ) :=
-  if_pos rfl
-
-@[simp]
-theorem deriv_char_of_ne (a b : α) (h : a ≠ b) : deriv (char a) b = (0 : WRegExp α κ) :=
-  if_neg h
-
-@[simp]
-theorem deriv_add (P Q : WRegExp α κ) (a : α) : deriv (P + Q) a = deriv P a + deriv Q a :=
-  rfl
-
--- TODO: does this actually compute the weight?
-def rmatch : WRegExp α κ → List α → κ
-  | P, [] => matchEpsilon P
-  | P, a :: as => rmatch (P.deriv a) as
-
 end matches'
+
+section toWNFA
+
+@[simp]
+def states : WRegExp α κ → Type
+| weight _ => Unit
+| char _ => Bool
+| P + Q => P.states ⊕ Q.states
+| P * Q => P.states ⊕ Q.states
+
+@[simp]
+theorem states_weight_unit (w : κ) : (weight (α:=α) w).states = Unit :=
+  rfl
+
+@[simp]
+theorem states_char_bool (a : α) : (char (κ:=κ) a).states = Bool :=
+  rfl
+
+@[simp]
+theorem states_plus_sum (P Q : WRegExp α κ) : (P + Q).states = (P.states ⊕ Q.states) :=
+  rfl
+
+@[simp]
+theorem states_comp_sum (P Q : WRegExp α κ) : (P * Q).states = (P.states ⊕ Q.states) :=
+  rfl
+
+#check Bool.decEq
+
+def statesDecEq : ∀ (r : WRegExp α κ) (s1 s2 : r.states), Decidable (s1 = s2)
+| weight w =>
+  cast (α:=∀ (s1 s2 : Unit), Decidable (s1 = s2)) sorry sorry
+| char a =>
+  cast (α:=∀ (s1 s2 : Bool), Decidable (s1 = s2)) sorry Bool.decEq
+| plus P Q => sorry
+| comp P Q => sorry
+
+instance instDeciableEqStates {r : WRegExp α κ} : DecidableEq r.states := r.statesDecEq
+
+end toWNFA
 
 end WRegExp
