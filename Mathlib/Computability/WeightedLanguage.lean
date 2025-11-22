@@ -3,10 +3,12 @@ Copyright (c) 2025 Rudy Peterson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
-import Mathlib.Data.List.Perm.Lattice
-import Mathlib.Algebra.Ring.Defs
-import Mathlib.Algebra.BigOperators.Group.List.Basic
-import Mathlib.Algebra.BigOperators.Ring.List
+module
+
+public import Mathlib.Data.List.Perm.Lattice
+public import Mathlib.Algebra.Ring.Defs
+public import Mathlib.Algebra.BigOperators.Ring.List
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 
 /-!
 # Weigted Languages
@@ -44,6 +46,10 @@ namespace WeightedLanguage
 
 variable {α : Type u} {κ : Type k}
 
+@[simp]
+def preimage (f : WeightedLanguage α κ) (g : List α → List α) : WeightedLanguage α κ :=
+  f ∘ g
+
 section zero
 
 variable [Zero κ]
@@ -53,6 +59,10 @@ instance instZero : Zero (WeightedLanguage α κ) :=
   ⟨fun _ ↦ 0⟩
 
 lemma zero_def_eq : (0 : WeightedLanguage α κ) = fun (_ : List α) ↦ (0 : κ) :=
+  rfl
+
+@[simp]
+lemma zero_apply (x : List α) : (0 : WeightedLanguage α κ) x = (0 : κ) :=
   rfl
 
 instance instInhabited : Inhabited (WeightedLanguage α κ) :=
@@ -95,11 +105,14 @@ instance instOne : One (WeightedLanguage α κ) :=
 lemma one_def_eq : (1 : WeightedLanguage α κ) = onlyNil :=
   rfl
 
+@[simp]
+lemma one_apply (x : List α) : (1 : WeightedLanguage α κ) x = onlyNil x :=
+  rfl
+
 lemma one_gives_zero (x : List α) :
     0 < x.length → (1 : WeightedLanguage α κ) x = 0 := by
   intros hx
-  simp [one_def_eq]
-  cases x <;> simp [onlyNil] at *
+  cases x <;> simp at *
 
 end one
 
@@ -118,6 +131,10 @@ instance instAdd : Add (WeightedLanguage α κ) where
 lemma add_def_eq (f g : WeightedLanguage α κ) : f + g = add_def f g :=
   rfl
 
+@[simp]
+lemma add_apply (f g : WeightedLanguage α κ) (x : List α) : (f + g) x = f x + g x :=
+  rfl
+
 lemma add_def_comm (f g : WeightedLanguage α κ) : f + g = g + f := by
   simp only [add_def_eq]
   funext x
@@ -127,13 +144,15 @@ lemma add_def_assoc (f g h : WeightedLanguage α κ) : (f + g) + h = f + (g + h)
   funext x
   simp [add_def_eq, add_def, W.add_assoc]
 
+@[simp]
 lemma zero_add_def (f : WeightedLanguage α κ) : 0 + f = f := by
   funext x
-  simp [add_def_eq, add_def, zero_def_eq]
+  simp [zero_def_eq]
 
+@[simp]
 lemma add_def_zero (f : WeightedLanguage α κ) : f + 0 = f := by
   funext x
-  simp [add_def_eq, add_def, zero_def_eq]
+  simp [zero_def_eq]
 
 end add
 
@@ -146,6 +165,7 @@ variable [W : Semiring κ]
 def cauchy_prod (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
   List.sum ∘ (List.map (fun x ↦ f x.1 * g x.2)) ∘ List.splits
 
+@[simp]
 lemma zero_cauchy_prod (f : WeightedLanguage α κ) :
     (0 : WeightedLanguage α κ).cauchy_prod f = 0 := by
   funext x
@@ -154,6 +174,7 @@ lemma zero_cauchy_prod (f : WeightedLanguage α κ) :
   unfold Function.comp
   simp [List.map_const', List.length_range, List.sum_replicate]
 
+@[simp]
 lemma cauchy_prod_zero (f : WeightedLanguage α κ) : f.cauchy_prod 0 = 0 := by
   funext x
   simp only [zero_def_eq, Function.comp, cauchy_prod]
@@ -167,6 +188,7 @@ lemma cauchy_prod_zero (f : WeightedLanguage α κ) : f.cauchy_prod 0 = 0 := by
   }
   simp only [List.map_const', List.length_range, List.sum_replicate, nsmul_zero]
 
+@[simp]
 lemma one_cauchy_prod (f : WeightedLanguage α κ) :
     (1 : WeightedLanguage α κ).cauchy_prod f = f := by
   funext x
@@ -179,6 +201,7 @@ lemma one_cauchy_prod (f : WeightedLanguage α κ) :
   congr
   cases x <;> simp
 
+@[simp]
 lemma cauchy_prod_one (f : WeightedLanguage α κ) : f.cauchy_prod 1 = f := by
   funext xs
   simp only [one_def_eq, cauchy_prod, Function.comp, splits, List.map_map]
@@ -275,6 +298,9 @@ instance instMul : Mul (WeightedLanguage α κ) where
 lemma mul_def_eq (f g : WeightedLanguage α κ) : f * g = cauchy_prod f g :=
   rfl
 
+lemma mul_apply (f g : WeightedLanguage α κ) (x : List α) : (f * g) x = f.cauchy_prod g x :=
+  rfl
+
 lemma mul_def_left_distrib (f g h : WeightedLanguage α κ) :
     f * (g + h) = f * g + f * h := by
   simp [mul_def_eq, cauchy_prod_left_distrib]
@@ -286,6 +312,22 @@ lemma mul_def_right_distrib (f g h : WeightedLanguage α κ) :
 lemma mul_def_assoc (f g h : WeightedLanguage α κ) : (f * g) * h = f * (g * h) := by
   simp [mul_def_eq, cauchy_prod_assoc]
 
+lemma mul_as_sum_over_prod [DecidableEq α] (f g : WeightedLanguage α κ) (x : List α) :
+    (f * g) x = ∑ y ∈ x.splits.toFinset, f y.1 * g y.2 := by
+  simp [mul_apply, cauchy_prod, List.sum_toFinset _ <| List.Nodup.splits_nodup x]
+
+@[simp]
+lemma mul_apply_nil (f g : WeightedLanguage α κ) : (f * g) [] = f [] * g [] := by
+  simp [mul_apply, cauchy_prod]
+
+@[simp]
+lemma mul_apply_cons (f g : WeightedLanguage α κ) (a : α) (x : List α) :
+    (f * g) (a :: x)
+    = f [] * g (a :: x)
+    + (f.preimage (a :: ·) * g) x
+    := by
+  simp [mul_apply, cauchy_prod, Function.comp_def]
+
 end cauchy
 
 section scalar
@@ -296,13 +338,28 @@ variable [Mul κ]
 def pointwise_prod [Mul κ] (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
   fun x ↦ f x * g x
 
+@[simp]
+lemma pointwise_prod_apply (f g : WeightedLanguage α κ) (x : List α) :
+    (f.pointwise_prod g) x = f x * g x := by
+  rfl
+
 /-- `scalar_prodl w f` assigns `w * f x` for all `x`. -/
 def scalar_prodl (w : κ) (f : WeightedLanguage α κ) : WeightedLanguage α κ :=
   fun x ↦ w * f x
 
+@[simp]
+lemma scalar_prodl_apply (w : κ) (f : WeightedLanguage α κ) (x : List α) :
+    scalar_prodl w f x = w * f x :=
+  rfl
+
 /-- `scalar_prodr f w` assigns `f x * w` for all `x`. -/
 def scalar_prodr (f : WeightedLanguage α κ) (w : κ) : WeightedLanguage α κ :=
   fun x ↦ f x * w
+
+@[simp]
+lemma scalar_prodr_apply (f : WeightedLanguage α κ) (w : κ) (x : List α) :
+     f.scalar_prodr w x = f x * w :=
+  rfl
 
 end scalar
 
