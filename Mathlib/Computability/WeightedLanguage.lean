@@ -46,6 +46,14 @@ namespace WeightedLanguage
 
 variable {α : Type u} {κ : Type k}
 
+@[ext]
+lemma ext {f g : WeightedLanguage α κ} (h : ∀ (x : List α), f x = g x) : f = g :=
+  funext h
+
+instance : FunLike (WeightedLanguage α κ) (List α) κ where
+  coe := id
+  coe_injective' := Function.injective_id
+
 @[simp]
 def preimage (f : WeightedLanguage α κ) (g : List α → List α) : WeightedLanguage α κ :=
   f ∘ g
@@ -93,7 +101,7 @@ lemma onlyNil_gives_zero (x : List α) :
     0 < x.length →
     onlyNil x = (0 : κ) := by
   intros hx
-  cases x <;> simp [onlyNil] at *
+  cases x <;> simp at *
 
 lemma onlyNil_eq (xs : List α) :
     onlyNil xs = if xs.length > 0 then (0 : κ) else (1 : κ) := by
@@ -137,22 +145,22 @@ lemma add_apply (f g : WeightedLanguage α κ) (x : List α) : (f + g) x = f x +
 
 lemma add_def_comm (f g : WeightedLanguage α κ) : f + g = g + f := by
   simp only [add_def_eq]
-  funext x
+  ext x
   apply W.add_comm
 
 lemma add_def_assoc (f g h : WeightedLanguage α κ) : (f + g) + h = f + (g + h) := by
-  funext x
-  simp [add_def_eq, add_def, W.add_assoc]
+  ext x
+  simp [W.add_assoc]
 
 @[simp]
 lemma zero_add_def (f : WeightedLanguage α κ) : 0 + f = f := by
-  funext x
-  simp [zero_def_eq]
+  ext x
+  simp
 
 @[simp]
 lemma add_def_zero (f : WeightedLanguage α κ) : f + 0 = f := by
-  funext x
-  simp [zero_def_eq]
+  ext x
+  simp
 
 end add
 
@@ -168,61 +176,34 @@ def cauchy_prod (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
 @[simp]
 lemma zero_cauchy_prod (f : WeightedLanguage α κ) :
     (0 : WeightedLanguage α κ).cauchy_prod f = 0 := by
-  funext x
-  simp only [zero_def_eq, Function.comp, cauchy_prod]
-  simp only [List.splits,  List.map_map, List.splitAt_eq]
-  unfold Function.comp
-  simp [List.map_const', List.length_range, List.sum_replicate]
+  ext x
+  simp [cauchy_prod]
 
 @[simp]
 lemma cauchy_prod_zero (f : WeightedLanguage α κ) : f.cauchy_prod 0 = 0 := by
-  funext x
-  simp only [zero_def_eq, Function.comp, cauchy_prod]
-  simp only [splits, List.map_map, List.splitAt_eq]
-  unfold Function.comp
-  conv_lhs => {
-    arg 1
-    arg 1
-    ext n
-    simp only [mul_zero]
-  }
-  simp only [List.map_const', List.length_range, List.sum_replicate, nsmul_zero]
+  ext x
+  simp [cauchy_prod]
 
 @[simp]
 lemma one_cauchy_prod (f : WeightedLanguage α κ) :
     (1 : WeightedLanguage α κ).cauchy_prod f = f := by
-  funext x
-  simp only [one_def_eq, cauchy_prod, Function.comp, splits, List.map_map, List.splitAt_eq]
-  unfold Function.comp
-  simp only [range_succ_eq_map, map_cons, take_zero, onlyNil_nil, drop_zero, one_mul, map_map,
-    sum_cons]
-  unfold Function.comp
-  rw (occs := [2]) [←W.add_zero (f x)]
-  congr
-  cases x <;> simp
+  ext x
+  cases x <;>
+  simp [cauchy_prod, Function.comp_def, splits, range_succ_eq_map]
 
 @[simp]
-lemma cauchy_prod_one (f : WeightedLanguage α κ) : f.cauchy_prod 1 = f := by
-  funext xs
-  simp only [one_def_eq, cauchy_prod, Function.comp, splits, List.map_map]
-  unfold Function.comp
-  simp [List.range_succ_eq_map]
-  unfold Function.comp
-  simp [onlyNil_eq]
-  cases xs with
-  | nil => simp
-  | cons x xs =>
-    simp only [length_cons, Nat.zero_lt_succ, ↓reduceIte, Nat.reduceSubDiff, take_succ_cons,
-      range_succ, map_append, map_cons, Nat.sub_self, lt_self_iff_false, take_length, map_nil,
-      sum_append, sum_cons, sum_nil, add_zero, zero_add]
-    have hsilly : ∀ n ∈ range xs.length,
-      (if 0 < xs.length - n then (0 : κ) else f (x :: take n xs)) = (0 : κ) := by
-      simp only [mem_range, ite_eq_left_iff, not_lt, Nat.le_zero_eq]; omega
-    simp [List.map_eq_replicate_iff.mpr hsilly]
+lemma cauchy_prod_one (f : WeightedLanguage α κ) :
+    f.cauchy_prod (1 : WeightedLanguage α κ) = f := by
+  ext x
+  have hallzero : ∀ n ∈ range x.length,
+      (if 0 < x.length - n then (0 : κ) else f (take n x)) = (0 : κ) := by
+    simp only [mem_range, ite_eq_left_iff, not_lt, Nat.le_zero_eq]; omega
+  simp [cauchy_prod, Function.comp_def, onlyNil_eq, splits, List.range_add,
+    List.map_eq_replicate_iff.mpr hallzero]
 
 lemma cauchy_prod_left_distrib (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g + h) = f.cauchy_prod g + f.cauchy_prod h := by
-  funext x
+  ext x
   simp only [cauchy_prod, add_def_eq, add_def, Function.comp]
   simp only [splits, List.map_map, List.splitAt_eq]
   rw [List.sum_add_sum_eq_sum_zipWith_of_length_eq]
@@ -237,7 +218,7 @@ lemma cauchy_prod_left_distrib (f g h : WeightedLanguage α κ) :
 
 lemma cauchy_prod_right_distrib (f g h : WeightedLanguage α κ) :
     (g + h).cauchy_prod f = g.cauchy_prod f + h.cauchy_prod f := by
-  funext x
+  ext x
   simp only [cauchy_prod, add_def_eq, add_def, Function.comp]
   simp only [splits, List.map_map, List.splitAt_eq]
   rw [List.sum_add_sum_eq_sum_zipWith_of_length_eq]
@@ -256,7 +237,7 @@ def cauchy_triple_l (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
 
 lemma cauchy_prod_triple_l (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = cauchy_triple_l f g h := by
-  funext l
+  ext l
   simp only [cauchy_prod, cauchy_triple_l, Function.comp, ←List.sum_map_mul_right]
   simp only [List.splits₃_left, Function.comp]
   simp only [List.flatMap_def]
@@ -272,7 +253,7 @@ def cauchy_triple_r (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
 
 lemma cauchy_prod_triple_r (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g.cauchy_prod h) = cauchy_triple_r f g h := by
-  funext l
+  ext l
   simp only [cauchy_prod, cauchy_triple_r, Function.comp, ←List.sum_map_mul_left]
   simp only [List.splits₃_right, Function.comp]
   simp only [List.flatMap_def]
@@ -284,7 +265,7 @@ lemma cauchy_prod_triple_r (f g h : WeightedLanguage α κ) :
 
 lemma cauchy_triple_l_r (f g h : WeightedLanguage α κ) :
     cauchy_triple_l f g h = cauchy_triple_r f g h := by
-  funext l
+  ext l
   simp only [cauchy_triple_l, Function.comp, W.mul_assoc, cauchy_triple_r]
   apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits₃_left_right_perm]
 
