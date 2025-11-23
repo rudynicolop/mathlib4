@@ -3,8 +3,10 @@ Copyright (c) 2025 Rudy Peterson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
-import Mathlib.Computability.WeightedLanguage
-import Mathlib.Computability.WeightedNFA
+module
+
+public import Mathlib.Computability.WeightedLanguage
+public import Mathlib.Computability.WeightedNFA
 
 /-!
 # Weighted Regular Expressions
@@ -14,6 +16,8 @@ lemmas.
 
 TODO: more explanation
 -/
+
+@[expose] public section
 
 open List
 
