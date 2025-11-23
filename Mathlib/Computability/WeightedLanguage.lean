@@ -33,6 +33,8 @@ TODO: fix naming conventions.
 * [Handbook of Weighted Automata][Handbook-of-Weighted-Automata]
 -/
 
+@[expose] public section
+
 open List
 
 universe u k
