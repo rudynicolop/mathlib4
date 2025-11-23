@@ -6,7 +6,6 @@ Authors: Rudy Peterson
 module
 
 public import Mathlib.Algebra.Group.Defs
-public import Mathlib.Tactic.Ring
 
 /-!
 # Weighted Paths
@@ -67,8 +66,7 @@ def yield {s₁ s₃ : σ} : WeightedPath α κ s₁ s₃ → List α
 lemma concat_assoc {s₁ s₂ s₃ s₄ : σ}
   (π₁ : WeightedPath α κ s₁ s₂) (π₂ : WeightedPath α κ s₂ s₃) (π₃ : WeightedPath α κ s₃ s₄) :
     (π₁.concat π₂).concat π₃ = π₁.concat (π₂.concat π₃) := by
-  revert s₃ s₄ π₂ π₃
-  induction π₁ <;> intros s₃ s₄ π₂ π₃
+  induction π₁
   case last _ =>
     simp
   case arc _ s _ a w π₁ ih =>
@@ -88,21 +86,18 @@ lemma length_concat {s₁ s₂ s₃ : σ} (π₁ : WeightedPath α κ s₁ s₂)
   case last _ =>
     simp
   case arc _ s _ a w π₁ ih =>
-    simp [ih]
-    ring
+    simp [ih, Nat.add_assoc]
 
 lemma length_reverse {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) : π.reverse.length = π.length := by
   induction π
   case last _ =>
     simp
   case arc _ s₂ _ a w π ih =>
-    simp [length_concat, ih]
-    ring
+    simp [length_concat, ih, Nat.add_comm 1]
 
 lemma reverse_concat {s₁ s₂ s₃ : σ} (π₁ : WeightedPath α κ s₁ s₂) (π₂ : WeightedPath α κ s₂ s₃) :
     (π₁.concat π₂).reverse = π₂.reverse.concat π₁.reverse := by
-  revert s₃ π₂
-  induction π₁ <;> intros s₃ π₂
+  induction π₁
   case last _ =>
     simp [concat_last]
   case arc _ s _ a w π₁ ih =>
@@ -113,15 +108,11 @@ lemma reverse_involutive {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) : 
   case last _ =>
     simp
   case arc s1 s₂ s3 a w π ih =>
-    simp
-    have h : arc s₂ s1 _ a w (last _) = (arc s1 _ s₂ a w (last _)).reverse := by simp
-    rw [h]
     simp [reverse_concat, ih]
 
 lemma yield_concat {s₁ s₂ s₃ : σ} (π₁ : WeightedPath α κ s₁ s₂) (π₂ : WeightedPath α κ s₂ s₃) :
     (π₁.concat π₂).yield = π₁.yield ++ π₂.yield := by
-  revert π₂
-  induction π₁ <;> intros π₂
+  induction π₁
   case last _ =>
     simp
   case arc _ s _ a w ih =>
@@ -144,8 +135,7 @@ def innerWeight [W : Monoid κ] {s₁ s₃ : σ} : WeightedPath α κ s₁ s₃ 
 lemma innerWeight_concat [W : Monoid κ] {s₁ s₂ s₃ : σ}
   (π₁ : WeightedPath α κ s₁ s₂) (π₂ : WeightedPath α κ s₂ s₃) :
     (π₁.concat π₂).innerWeight = π₁.innerWeight * π₂.innerWeight := by
-  revert π₂
-  induction π₁ <;> intro π₂
+  induction π₁
   case last _ =>
     simp
   case arc _ s _ a w π₁ ih =>
@@ -179,8 +169,7 @@ lemma foldr_length {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
   case last _ =>
     simp
   case arc _ s₂ _ a w π ih =>
-    simp [ih]
-    ring
+    simp [ih, Nat.add_comm 1]
 
 lemma foldr_yield {s₁ s₃ : σ} (π : WeightedPath α κ s₁ s₃) :
     foldr (fun _ a _ _ ↦ List.cons a) [] π = π.yield := by
@@ -196,8 +185,7 @@ lemma foldr_innerWeight [W : Monoid κ] {s₁ s₃ : σ} (π : WeightedPath α �
   case last _ =>
     simp
   case arc _ s₂ _ a w π ih =>
-    simp [ih]
-    rfl
+    simp [ih, (· * ·)]
 
 section All
 
@@ -218,8 +206,7 @@ variable (P : σ → α → κ → σ → Prop)
 lemma All_concat {s₁ s₂ s₃ : σ}
   (π₁ : WeightedPath α κ s₁ s₂) (π₂ : WeightedPath α κ s₂ s₃) :
     All P (π₁.concat π₂) ↔ All P π₁ ∧ All P π₂ := by
-  revert s₃ π₂
-  induction π₁ <;> intros s₃ π₂
+  induction π₁
   case last _ =>
     simp
   case arc _ s _ a w π₁ ih =>
