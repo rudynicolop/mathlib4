@@ -1244,7 +1244,7 @@ theorem combineSum_apply_inr {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ2} :
     combineSum S1 S2 (Sum.inr s) = S2 s :=
   rfl
 
-variable [W : CommSemiring κ] [Fintype σ1] [Fintype σ2] (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
+variable [W : Semiring κ] [Fintype σ1] [Fintype σ2] (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
 
 theorem combineSum_separate {S1 : σ1 → κ} {S2 : σ2 → κ} :
     combineSum S1 S2 = combineSum S1 0 + combineSum 0 S2 := by
