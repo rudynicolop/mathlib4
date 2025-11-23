@@ -3,7 +3,10 @@ Copyright (c) 2025 Rudy Peterson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
-import Mathlib.Tactic.Ring
+module
+
+public import Mathlib.Algebra.Group.Defs
+public import Mathlib.Tactic.Ring
 
 /-!
 # Weighted Paths
