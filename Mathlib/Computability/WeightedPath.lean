@@ -27,6 +27,8 @@ valid paths.
 * [Handbook of Weighted Automata][Handbook-of-Weighted-Automata]
 -/
 
+@[expose] public section
+
 universe k u v
 
 /-- A weighted path `π : WeightedPath α κ s₁ s₂` represents a sequence of transitions in a weighted
