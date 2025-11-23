@@ -11,6 +11,7 @@ public import Mathlib.Computability.WeightedLanguage
 public import Mathlib.Computability.DFA
 public import Mathlib.Algebra.Ring.PUnit
 public import Mathlib.Algebra.Ring.WithZero
+public import Mathlib.Algebra.Order.GroupWithZero.Canonical
 
 /-!
 # Weighted Deterministic Finite Automata
@@ -31,6 +32,8 @@ full semiring.
 
 TODO: explain stuff.
 -/
+
+@[expose] public section
 
 universe k u v
 
@@ -207,8 +210,8 @@ lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
   {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
     (M1.inter M2).acceptsFrom ((s1, s2), w1 * w2)
     = (M1.acceptsFrom (s1, w1)).pointwise_prod (M2.acceptsFrom (s2, w2)) := by
-  funext x
-  rw [WeightedLanguage.pointwise_prod]
+  ext x
+  rw [WeightedLanguage.pointwise_prod_apply]
   induction x generalizing s1 s2 w1 w2
   case nil =>
     simp only [acceptsFrom_nil, inter_final, interFinal]
