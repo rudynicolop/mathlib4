@@ -204,74 +204,42 @@ lemma cauchy_prod_one (f : WeightedLanguage α κ) :
 lemma cauchy_prod_left_distrib (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g + h) = f.cauchy_prod g + f.cauchy_prod h := by
   ext x
-  simp only [cauchy_prod, add_def_eq, add_def, Function.comp]
-  simp only [splits, List.map_map, List.splitAt_eq]
-  rw [List.sum_add_sum_eq_sum_zipWith_of_length_eq]
-  · congr
-    simp only [List.zipWith_map, List.zipWith_self]
-    rw [←List.forall₂_eq_eq_eq]
-    rw [List.forall₂_map_left_iff, List.forall₂_map_right_iff]
-    rw [List.forall₂_same]
-    intros n hn
-    simp [W.left_distrib]
-  · simp only [List.length_map]
+  simp [cauchy_prod, splits, Function.comp_def, W.left_distrib]
 
 lemma cauchy_prod_right_distrib (f g h : WeightedLanguage α κ) :
     (g + h).cauchy_prod f = g.cauchy_prod f + h.cauchy_prod f := by
   ext x
-  simp only [cauchy_prod, add_def_eq, add_def, Function.comp]
-  simp only [splits, List.map_map, List.splitAt_eq]
-  rw [List.sum_add_sum_eq_sum_zipWith_of_length_eq]
-  · congr
-    simp only [List.zipWith_map, List.zipWith_self]
-    rw [←List.forall₂_eq_eq_eq]
-    rw [List.forall₂_map_left_iff, List.forall₂_map_right_iff]
-    rw [List.forall₂_same]
-    intros n hn
-    simp [W.right_distrib]
-  · simp only [List.length_map]
+  simp [cauchy_prod, splits, Function.comp_def, W.right_distrib]
 
 /-- Left-associative cauchy product between three languages. -/
-def cauchy_triple_l (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
+def cauchy_prod₃_left (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
   List.sum ∘ (List.map (fun x ↦ (f x.1 * g x.2.1) * h x.2.2)) ∘ List.splits₃_left
 
-lemma cauchy_prod_triple_l (f g h : WeightedLanguage α κ) :
-    (f.cauchy_prod g).cauchy_prod h = cauchy_triple_l f g h := by
-  ext l
-  simp only [cauchy_prod, cauchy_triple_l, Function.comp, ←List.sum_map_mul_right]
-  simp only [List.splits₃_left, Function.comp]
-  simp only [List.flatMap_def]
-  simp only [map_flatten, map_map, sum_flatten]
-  unfold Function.comp
-  simp only [map_map]
-  unfold Function.comp
-  simp
+lemma cauchy_prod₃_left_eq (f g h : WeightedLanguage α κ) :
+    (f.cauchy_prod g).cauchy_prod h = cauchy_prod₃_left f g h := by
+  ext x
+  simp [cauchy_prod, cauchy_prod₃_left, List.splits₃_left, splits, Function.comp_def,
+    ←List.sum_map_mul_right, List.flatMap_def]
 
 /-- Right-associative cauchy product between three languages. -/
-def cauchy_triple_r (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
+def cauchy_prod₃_right (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
   List.sum ∘ (List.map (fun x ↦ f x.1 * (g x.2.1 * h x.2.2))) ∘ List.splits₃_right
 
-lemma cauchy_prod_triple_r (f g h : WeightedLanguage α κ) :
-    f.cauchy_prod (g.cauchy_prod h) = cauchy_triple_r f g h := by
-  ext l
-  simp only [cauchy_prod, cauchy_triple_r, Function.comp, ←List.sum_map_mul_left]
-  simp only [List.splits₃_right, Function.comp]
-  simp only [List.flatMap_def]
-  simp only [Prod.mk.eta, map_flatten, map_map, sum_flatten]
-  unfold Function.comp
-  simp only [map_map]
-  unfold Function.comp
-  simp
+lemma cauchy_prod₃_right_eq (f g h : WeightedLanguage α κ) :
+    f.cauchy_prod (g.cauchy_prod h) = cauchy_prod₃_right f g h := by
+  ext x
+  simp [cauchy_prod, cauchy_prod₃_right, List.splits₃_right, splits, Function.comp_def,
+    ←List.sum_map_mul_left, List.flatMap_def]
 
-lemma cauchy_triple_l_r (f g h : WeightedLanguage α κ) :
-    cauchy_triple_l f g h = cauchy_triple_r f g h := by
+lemma cauchy_prod₃_left_right (f g h : WeightedLanguage α κ) :
+    cauchy_prod₃_left f g h = cauchy_prod₃_right f g h := by
   ext l
-  simp only [cauchy_triple_l, Function.comp, W.mul_assoc, cauchy_triple_r]
+  simp only [cauchy_prod₃_left, cauchy_prod₃_right, Function.comp_def, W.mul_assoc]
   apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits₃_left_right_perm]
 
 lemma cauchy_prod_assoc (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = f.cauchy_prod (g.cauchy_prod h) := by
-  rw [cauchy_prod_triple_l, cauchy_triple_l_r, ←cauchy_prod_triple_r]
+  rw [cauchy_prod₃_left_eq, cauchy_prod₃_left_right, cauchy_prod₃_right_eq]
 
 instance instMul : Mul (WeightedLanguage α κ) where
   mul := cauchy_prod
