@@ -3,12 +3,14 @@ Copyright (c) 2025 Rudy Peterson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
-import Mathlib.Algebra.Ring.Defs
-import Mathlib.Computability.WeightedPath
-import Mathlib.Computability.WeightedLanguage
-import Mathlib.Computability.DFA
-import Mathlib.Algebra.Ring.PUnit
-import Mathlib.Algebra.Ring.WithZero
+module
+
+public import Mathlib.Algebra.Ring.Defs
+public import Mathlib.Computability.WeightedPath
+public import Mathlib.Computability.WeightedLanguage
+public import Mathlib.Computability.DFA
+public import Mathlib.Algebra.Ring.PUnit
+public import Mathlib.Algebra.Ring.WithZero
 
 /-!
 # Weighted Deterministic Finite Automata
