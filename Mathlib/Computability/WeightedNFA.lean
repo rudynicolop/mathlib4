@@ -3,21 +3,25 @@ Copyright (c) 2025 Rudy Peterson. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rudy Peterson
 -/
-import Mathlib.Computability.NFA
-import Mathlib.Computability.WeightedDFA
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Data.Multiset.Functor
-import Mathlib.Algebra.Module.BigOperators
-import Mathlib.Algebra.BigOperators.Ring.Multiset
-import Mathlib.Data.Finsupp.Basic
-import Mathlib.Data.Finsupp.Weight
-import Mathlib.Data.Finsupp.Notation
+module
+
+public import Mathlib.Computability.NFA
+public import Mathlib.Computability.WeightedDFA
+public import Mathlib.Data.Multiset.Basic
+public import Mathlib.Data.Multiset.Functor
+public import Mathlib.Algebra.Module.BigOperators
+public import Mathlib.Algebra.BigOperators.Ring.Multiset
+public import Mathlib.Data.Finsupp.Basic
+public import Mathlib.Data.Finsupp.Weight
+public import Mathlib.Data.Finsupp.Notation
 
 /-!
 # Weighted Nondeterministic Finite Automata
 
 TODO
 -/
+
+@[expose] public section
 
 section helper
 
@@ -310,12 +314,12 @@ lemma acceptsFrom_union {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
     (M1 + M2).acceptsFrom ((Prod.map Sum.inl id <$> S1) + (Prod.map Sum.inr id <$> S2))
     = M1.acceptsFrom S1 + M2.acceptsFrom S2 := by
-  funext x
+  ext x
   induction x generalizing S1 S2
   case nil =>
-    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+    simp
   case cons a x ih =>
-    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def] at *
+    simp at *
     simp [←ih]
     clear ih
     congr 1
@@ -361,7 +365,7 @@ lemma acceptsFrom_inter {M1 : WNFA α σ1 κ} {M2 : WNFA α σ2 κ}
   {S1 : Multiset (σ1 × κ)} {S2 : Multiset (σ2 × κ)} :
     (M1.inter M2).acceptsFrom (combine <$> (S1 ×ˢ S2))
     = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
-  funext x
+  ext x
   rw [WeightedLanguage.pointwise_prod]
   induction x generalizing S1 S2
   case nil =>
@@ -408,7 +412,7 @@ variable {α : Type u} {κ : Type k} {σ : Type v} [W : Semiring κ]
 
 theorem acceptsFrom_toWNFA (M : WDFA α σ κ) (sw : σ × κ) :
     M.acceptsFrom sw = M.toWNFA.acceptsFrom {sw} := by
-  funext x
+  ext x
   induction x generalizing sw
   case nil =>
     simp
@@ -563,15 +567,15 @@ variable [DecidableEq σ1] [DecidableEq σ2]
 
 lemma acceptsFrom_union {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
     acceptsFrom (M1 + M2) (combineSum S1 S2) = acceptsFrom M1 S1 + acceptsFrom M2 S2 := by
-  funext x
+  ext x
   induction x generalizing S1 S2
   case nil =>
-    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+    simp
     simp [Finsupp.weight_apply, Finsupp.sum_embDomain]
     simp [←Function.Embedding.inl_apply, ←Function.Embedding.inr_apply]
     simp [Finsupp.embDomain_notin_range]
   case cons a x ih =>
-    simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def] at *
+    simp at *
     simp [←ih]
     clear ih
     congr 1
@@ -644,14 +648,14 @@ def inter (M1 : WNFA₂ α σ1 κ) (M2 : WNFA₂ α σ2 κ) : WNFA₂ α (σ1 ×
 lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : σ1 →₀ κ} {S2 : σ2 →₀ κ} :
     (acceptsFrom (inter M1 M2)) (combineProd₀ S1 S2)
     = (acceptsFrom M1 S1).pointwise_prod (acceptsFrom M2 S2) := by
-  funext x
+  ext x
   simp [WeightedLanguage.pointwise_prod]
   induction x generalizing S1 S2
   case nil =>
     simp [Finsupp.weight_apply, Finsupp.onFinset_sum]
     simp [Finset.sum_product, Finsupp.sum.eq_1, Finset.sum_mul_sum]
-    congr; funext s1
-    congr; funext s2
+    congr; ext s1
+    congr; ext s2
     rw [mul_assoc (S1 s1) (M1.final s1), ←mul_assoc (M1.final s1), mul_comm (M1.final s1) (S2 s2)]
     ac_nf
   case cons a x ih =>
@@ -662,8 +666,8 @@ lemma acceptsFrom_inter {M1 : WNFA₂ α σ1 κ} {M2 : WNFA₂ α σ2 κ} {S1 : 
     simp at h
     simp [h]; clear h
     simp [Finset.sum_product, Finset.sum_mul_sum]
-    congr; funext s1
-    congr; funext s2
+    congr; ext s1
+    congr; ext s2
     rw [mul_assoc (S1 s1) ((M1.step s1 a) s1')]
     ac_nf
 
@@ -763,7 +767,7 @@ theorem stepSet_getMultiset {S : σ →₀ κ} {a : α} :
 
 theorem acceptsFrom_toWNFA {S : σ →₀ κ} :
     (toWNFA M).acceptsFrom (getMultiset S) = acceptsFrom M S := by
-  funext x
+  ext x
   induction x generalizing S with
   | nil =>
     rw [getMultiset]
@@ -870,14 +874,13 @@ theorem acceptsFrom_cons (S : σ → κ) (a : α) (x : List α) :
 @[simp]
 theorem acceptsFrom_add (S1 S2 : σ → κ) :
     M.acceptsFrom (S1 + S2) = M.acceptsFrom S1 + M.acceptsFrom S2 := by
-  funext x
-  simp [WeightedLanguage.add_def_eq, WeightedLanguage.add_def, acceptsFrom, W.right_distrib,
-    Finset.sum_add_distrib]
+  ext x
+  simp [acceptsFrom, W.right_distrib, Finset.sum_add_distrib]
 
 @[simp]
 theorem acceptsFrom_const_zero :
     M.acceptsFrom 0 = 0 := by
-  funext x
+  ext x
   simp only [WeightedLanguage.zero_def_eq]
   induction x with
   | nil => simp
@@ -885,11 +888,10 @@ theorem acceptsFrom_const_zero :
 
 theorem acceptsFrom_sum {ι : Type*} [DecidableEq ι] (I : Finset ι) (f : ι → σ → κ) :
     M.acceptsFrom (∑ i ∈ I, f i) = ∑ i ∈ I, M.acceptsFrom (f i) := by
-  funext x
+  ext x
   induction I using Finset.induction with
   | empty => simp [show (0 : List α → κ) x = (0 : κ) by rfl]
-  | insert i I hi ih =>
-    simp [Finset.sum_insert hi, WeightedLanguage.add_def_eq, WeightedLanguage.add_def, ih]
+  | insert i I hi ih => simp [Finset.sum_insert hi, ih]
 
 theorem acceptsFrom_sum_Fintype {ι : Type*} [DecidableEq ι] [Fintype ι] (f : ι → σ → κ) :
     M.acceptsFrom (∑ i : ι, f i) = ∑ i : ι, M.acceptsFrom (f i) := by
@@ -897,10 +899,20 @@ theorem acceptsFrom_sum_Fintype {ι : Type*} [DecidableEq ι] [Fintype ι] (f : 
 
 theorem acceptsFrom_compose_mul (w : κ) (S : σ → κ) :
     M.acceptsFrom ((w * ·) ∘ S) = (w * ·) ∘ M.acceptsFrom S := by
-  funext x
+  ext x
   induction x generalizing w S with
   | nil => simp [Finset.mul_sum, W.mul_assoc]
   | cons a x ih => simp [stepSet_compose_mul, ih]
+
+@[simp]
+theorem acceptsFrom_compose_cons (S : σ → κ) (a : α) :
+    M.acceptsFrom S ∘ (a :: ·) = M.acceptsFrom (M.stepSet S a) :=
+  rfl
+
+@[simp]
+theorem finset_sum_apply (S : Finset σ) (f : σ → WeightedLanguage α κ) (x : List α) :
+    (∑ s ∈ S, f s) x = ∑ s ∈ S, f s x := by
+  apply Finset.sum_apply
 
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
@@ -1018,7 +1030,7 @@ theorem stepSet_empty {S : Unit → κ} {a : α} : (empty (α:=α) w).stepSet S 
   simp [stepSet]
 
 theorem accepts_empty : (empty (α:=α) w).accepts = WeightedLanguage.scalar_prodl (α:=α) w 1 := by
-  funext x
+  ext x
   simp [accepts, WeightedLanguage.scalar_prodl, WeightedLanguage.one_def_eq]
   cases x with
   | nil => simp
@@ -1067,7 +1079,7 @@ theorem charStep_zero :
   simp
 
 theorem accepts_char : (char (κ:=κ) a).accepts = fun x ↦ if x = [a] then (1 : κ) else (0 : κ) := by
-  funext x
+  ext x
   rw [accepts]
   cases x with
   | nil =>
@@ -1144,8 +1156,8 @@ theorem stepSet_hadd {S1 : σ1 → κ} {S2 : σ2 → κ} {a : α} :
 
 theorem acceptsFrom_hadd {S1 : σ1 → κ} {S2 : σ2 → κ} :
     (M1 + M2).acceptsFrom (combineSum S1 S2) = M1.acceptsFrom S1 + M2.acceptsFrom S2 := by
-  funext x
-  rw [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
+  ext x
+  rw [WeightedLanguage.add_apply]
   induction x generalizing S1 S2 with
   | nil => simp [combineSum]
   | cons a x ih => simp [stepSet_hadd, ih]
@@ -1204,7 +1216,7 @@ theorem stepSet_inter {S1 : σ1 → κ} {S2 : σ2 → κ} {a : α} :
 theorem acceptsFrom_inter {S1 : σ1 → κ} {S2 : σ2 → κ} :
     (M1.inter M2).acceptsFrom (combineProd S1 S2)
     = (M1.acceptsFrom S1).pointwise_prod (M2.acceptsFrom S2) := by
-  funext x
+  ext x
   rw [WeightedLanguage.pointwise_prod]
   induction x generalizing S1 S2 with
   | nil =>
@@ -1282,70 +1294,43 @@ theorem stepSet_hmul_inr {S2 : σ2 → κ} {a : α} :
 
 theorem acceptsFrom_hmul_inr {S2 : σ2 → κ} :
     (M1 * M2).acceptsFrom (combineSum 0 S2) = M2.acceptsFrom S2 := by
-  funext y
+  ext y
   induction y generalizing S2 with
   | nil => simp [combineSum]
   | cons a y ih => simp [stepSet_hmul_inr, ih]
 
-variable [DecidableEq σ1] [DecidableEq σ2]
-
-variable [DecidableEq α]
+variable [DecidableEq σ1] [DecidableEq σ2] [DecidableEq α]
 
 theorem acceptsFrom_hmul {S1 : σ1 → κ} :
     (M1 * M2).acceptsFrom (combineSum S1 0) = M1.acceptsFrom S1 * M2.accepts := by
-  funext z
-  rw [WeightedLanguage.mul_def_eq, WeightedLanguage.cauchy_prod]
-  unfold Function.comp
+  ext z
   induction z generalizing S1 with
   | nil =>
     simp [Finset.sum_mul, W.mul_assoc]
   | cons a z ih =>
-    rw [acceptsFrom_cons, stepSet, acceptsFrom_sum]
-    suffices hbruh :
-      (∑ i, (M1 * M2).acceptsFrom ((fun x ↦ combineSum S1 0 i * x) ∘ (M1 * M2).step i a) z) =
-      (List.map (fun x ↦ M1.acceptsFrom S1 x.1 * M2.accepts x.2) (a :: z).splits).sum by {
-      rw [←hbruh]
-      apply Finset.sum_apply
-    }
-    simp [acceptsFrom_compose_mul]
+    suffices h :
+      ∑ s1 : σ1,
+        S1 s1 *
+        (M1 * M2).acceptsFrom
+          (combineSum (M1.step s1 a)
+            ((M1.final s1 * ·) ∘ ∑ s2 : σ2, (M2.start s2 * ·) ∘ M2.step s2 a)) z =
+      (∑ s1 : σ1, S1 s1 * M1.final s1) * M2.accepts (a :: z) +
+      (((∑ s1 : σ1, (S1 s1 * ·) ∘ M1.acceptsFrom (M1.step s1 a)) : WeightedLanguage α κ)
+       * M2.accepts) z by
+      simpa [stepSet, acceptsFrom_sum, acceptsFrom_compose_mul,
+        Function.comp_def (fun x : κ ↦ (0 : κ)),
+        show (↑(Fintype.card σ2) * fun x ↦ 0) = (0 : σ1 ⊕ σ2 → κ) by (ext (s1 | s2) <;> simp)]
     conv_lhs => {
       arg 2
       ext s
-      rw [combineSum_separate, acceptsFrom_add]
-      rw [WeightedLanguage.add_def_eq, WeightedLanguage.add_def]
-      rw [ih, acceptsFrom_hmul_inr]
+      rw [combineSum_separate, acceptsFrom_add, WeightedLanguage.add_apply, ih,
+        acceptsFrom_hmul_inr]
     }
-    clear ih
-    simp [W.left_distrib, Finset.sum_add_distrib]
-    rw [W.add_comm]
-    congr 1
-    · simp [accepts, Finset.sum_mul, stepSet]
-      congr 1
-      ext q
-      rw [W.mul_assoc]
-      congr 1
-      simp only [acceptsFrom_sum, acceptsFrom_compose_mul, Function.comp_apply]
-    · unfold Function.comp
-      simp only [acceptsFrom_cons, stepSet]
-      simp only [acceptsFrom_sum, acceptsFrom_compose_mul]
-      suffices hbruh :
-        ∑ s1 : σ1,
-          S1 s1 *
-          (List.map (fun x ↦ M1.acceptsFrom (M1.step s1 a) x.1 * M2.accepts x.2) z.splits).sum
-        = (List.map
-          (fun x ↦ ∑ s1 : σ1,
-            S1 s1 * M1.acceptsFrom (M1.step s1 a) x.1 * M2.accepts x.2) z.splits).sum by {
-        rw [hbruh]
-        congr
-        ext x
-        rw [←Finset.sum_mul]
-        congr
-        symm
-        apply Fintype.sum_apply
-      }
-      simp [Finset.sum_list_map_count, Finset.mul_sum]
-      rw [Finset.sum_comm]
-      ac_nf
+    simp [W.left_distrib, Finset.sum_add_distrib,
+      acceptsFrom_compose_mul, acceptsFrom_sum, accepts, stepSet, Finset.sum_mul,
+      Finset.mul_sum, WeightedLanguage.mul_as_sum_over_prod,
+      W.add_comm (∑ s : σ1, ∑ y ∈ z.splits.toFinset, _), W.mul_assoc,
+      Finset.sum_comm (f:=fun x y ↦ S1 y * _)]
 
 theorem accepts_hmul : (M1 * M2).accepts = M1.accepts * M2.accepts := by
   simp [accepts, acceptsFrom_hmul]
@@ -1418,7 +1403,6 @@ def revAcceptsFrom (S : σ → κ) : WeightedLanguage α κ :=
 theorem rev_acceptsFrom_eq_revAcceptsFrom :
     M.rev.acceptsFrom = M.revAcceptsFrom := by
   ext S
-  funext x
   simp [acceptsFrom, revAcceptsFrom]
   ac_nf
 
@@ -1434,7 +1418,7 @@ theorem sum_revEvalFrom_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
     ac_nf
 
 theorem accepts_rev : M.rev.accepts = M.accepts.rev := by
-  funext x
+  ext x
   simp [accepts, acceptsFrom, sum_revEvalFrom_evalFrom_reverse]
 
 end reverse
@@ -1459,7 +1443,7 @@ variable [Fintype σ]
 
 theorem acceptsFrom_toWNFA₃ (M : WDFA α σ κ) (sw : σ × κ) :
     M.acceptsFrom sw = M.toWNFA₃.acceptsFrom (funOfPair sw) := by
-  funext x
+  ext x
   induction x generalizing sw
   case nil => simp
   case cons a x ih =>
