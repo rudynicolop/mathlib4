@@ -27,11 +27,25 @@ namespace List
 
 variable {α : Type u}
 
+theorem splits_append_tail {x y : List α} :
+    (x ++ y).splits =
+    (x.splits.map (fun td ↦ (td.1, td.2 ++ y)))
+    ++ (y.splits.map (fun td ↦ (x ++ td.1, td.2))).tail := by
+  induction x generalizing y with
+  | nil => cases y <;> simp [List.splits_cons]
+  | cons a x ih => simp [List.splits_cons, ih, Function.comp_def, ←List.map_tail]
+
+theorem splits_append_dropLast {x y : List α} :
+    (x ++ y).splits =
+    (x.splits.map (fun td ↦ (td.1, td.2 ++ y))).dropLast
+    ++ (y.splits.map (fun td ↦ (x ++ td.1, td.2))) := by
+  rw [splits_append_tail]
+  rcases (List.eq_nil_or_concat' x) with (rfl | ⟨z, a, rfl⟩) <;>
+  rcases y with (_ | ⟨b, y⟩) <;> simp [List.splits_append_tail, List.splits_cons]
+
 theorem splits_append_singleton {x : List α} (a : α) :
     (x ++ [a]).splits = x.splits.map (fun td ↦ (td.1, td.2 ++ [a])) ++ [(x ++ [a], [])] := by
-  induction x generalizing a with
-  | nil => simp [List.splits_cons]
-  | cons b x ih => simp [List.splits_cons, ih]
+  simp [splits_append_tail, List.splits_cons]
 
 theorem splits_reverse {l : List α} :
     l.reverse.splits = (l.splits.map (fun td ↦ (td.2.reverse, td.1.reverse))).reverse := by
