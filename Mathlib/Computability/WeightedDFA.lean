@@ -280,14 +280,14 @@ lemma toDFA_acceptsFrom {s : σ} {x : List α} :
   case nil => simp
   case cons a x ih =>
     rcases hstep : M.step s a with ⟨s', w⟩
-    simp [hstep]
+    simp only [DFA.mem_acceptsFrom_cons, toDFA_step, toDFAStep, hstep, acceptsFrom_cons, one_mul]
     rcases (wzu_zero_or_one w) with rfl | rfl
     · simp [toDFA_acceptsFrom_none]
     · simp [ih]
 
 theorem toDFA_accepts {x : List α} :
     x ∈ M.toDFA.accepts ↔ M.accepts x = 1 := by
-  simp [accepts, DFA.accepts]
+  simp only [DFA.accepts, toDFA_start, toDFAStart, accepts]
   rcases M.start with ⟨s, w⟩
   rcases (wzu_zero_or_one w) with rfl | rfl
   · simp [toDFA_acceptsFrom_none]
