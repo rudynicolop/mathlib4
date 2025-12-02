@@ -175,8 +175,11 @@ theorem statesElems_complete (r : WRegExp α κ) (s : r.states) : s ∈ r.states
   induction r with
   | weight w => simp
   | char a => simp
-  | plus P Q ihp ihq => simp; constructor <;> assumption
-  | comp P Q ihp ihq => simp; constructor <;> assumption
+  | plus P Q ihp ihq
+  | comp P Q ihp ihq =>
+    suffices h : (∀ (s : P.states), s ∈ P.statesElems) ∧ ∀ (s : Q.states), s ∈ Q.statesElems by
+      simpa
+    constructor <;> assumption
 
 instance instFintypeStates {r : WRegExp α κ} : Fintype r.states where
   elems := r.statesElems
