@@ -34,14 +34,6 @@ lemma distr_fun_ite (c : Prop) [Decidable c] (f : α → β) (t e : α) :
   by_cases h : c
   · simp [if_pos h]
   · simp [if_neg h]
-
--- Maybe someday this will be merged into Mathlib...
-theorem Multiset.filter_eq_bind (m : Multiset α) (p : α → Prop) [DecidablePred p] :
-    filter p m = bind m (fun a => if p a then {a} else 0) := by
-  induction m using Multiset.induction with
-  | empty => simp
-  | cons a m ih => simp [filter_cons, ih]
-
 end helper
 
 universe u v k
@@ -811,6 +803,11 @@ section basic
 
 variable {σ : Type v} [W : Semiring κ]
 
+@[simp]
+theorem finset_sum_apply (S : Finset σ) (f : σ → WeightedLanguage α κ) (x : List α) :
+    (∑ s ∈ S, f s) x = ∑ s ∈ S, f s x := by
+  apply Finset.sum_apply
+
 instance : Inhabited (WNFA₃ α σ κ) :=
   ⟨WNFA₃.mk (fun _ _ ↦ 0) 0 0⟩
 
@@ -886,14 +883,15 @@ theorem acceptsFrom_const_zero :
   | nil => simp
   | cons a x ih => simp [M.stepSet_const_zero, ih]
 
-theorem acceptsFrom_sum {ι : Type*} [DecidableEq ι] (I : Finset ι) (f : ι → σ → κ) :
+theorem acceptsFrom_sum {ι : Type*} (I : Finset ι) (f : ι → σ → κ) :
     M.acceptsFrom (∑ i ∈ I, f i) = ∑ i ∈ I, M.acceptsFrom (f i) := by
+  open scoped Classical in
   ext x
   induction I using Finset.induction with
   | empty => simp [show (0 : List α → κ) x = (0 : κ) by rfl]
   | insert i I hi ih => simp [Finset.sum_insert hi, ih]
 
-theorem acceptsFrom_sum_Fintype {ι : Type*} [DecidableEq ι] [Fintype ι] (f : ι → σ → κ) :
+theorem acceptsFrom_sum_Fintype {ι : Type*} [Fintype ι] (f : ι → σ → κ) :
     M.acceptsFrom (∑ i : ι, f i) = ∑ i : ι, M.acceptsFrom (f i) := by
   rw [acceptsFrom_sum]
 
@@ -908,11 +906,6 @@ theorem acceptsFrom_compose_mul (w : κ) (S : σ → κ) :
 theorem acceptsFrom_compose_cons (S : σ → κ) (a : α) :
     M.acceptsFrom S ∘ (a :: ·) = M.acceptsFrom (M.stepSet S a) :=
   rfl
-
-@[simp]
-theorem finset_sum_apply (S : Finset σ) (f : σ → WeightedLanguage α κ) (x : List α) :
-    (∑ s ∈ S, f s) x = ∑ s ∈ S, f s x := by
-  apply Finset.sum_apply
 
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
@@ -971,10 +964,9 @@ def toNFA : NFA α σ where
   start := M.toNFAStart
   accept := M.toNFAAccept
 
-variable [DecidableEq σ]
-
 theorem exists_sum_Finset_eq_one {S : Finset σ} {f : σ → WithZero Unit} :
     (∃ s ∈ S, f s = 1) ↔ ∑ s ∈ S, f s = 1 := by
+  open scoped Classical in
   induction S using Finset.induction with
   | empty => simp
   | insert q S hq ih => simp [Finset.sum_insert hq, ih]
@@ -1031,10 +1023,10 @@ theorem stepSet_empty {S : Unit → κ} {a : α} : (empty (α:=α) w).stepSet S 
 
 theorem accepts_empty : (empty (α:=α) w).accepts = WeightedLanguage.scalar_prodl (α:=α) w 1 := by
   ext x
-  simp [accepts, WeightedLanguage.scalar_prodl, WeightedLanguage.one_def_eq]
+  rw [accepts]
   cases x with
   | nil => simp
-  | cons a x => simp [WeightedLanguage.zero_def_eq]
+  | cons a x => simp
 
 end empty
 
@@ -1092,8 +1084,8 @@ theorem accepts_char : (char (κ:=κ) a).accepts = fun x ↦ if x = [a] then (1 
     | cons c x =>
       by_cases hba : b = a <;>
       suffices h : (0 : List α → κ) x = (0 : κ) by
-        { simpa [stepSet, show (fun x ↦ x) = id by rfl,
-          show (fun x ↦ (0 : κ)) = Function.const κ 0 by rfl] } <;>
+        { simp [stepSet, show (fun x ↦ x) = id by rfl,
+            show (fun x ↦ (0 : κ)) = Function.const κ 0 by rfl] } <;>
       rfl
 
 end char
@@ -1209,8 +1201,10 @@ theorem stepSet_inter {S1 : σ1 → κ} {S2 : σ2 → κ} {a : α} :
     (M1.inter M2).stepSet (combineProd S1 S2) a
     = combineProd (M1.stepSet S1 a) (M2.stepSet S2 a) := by
   ext ⟨s1, s2⟩
-  simp [stepSet, combineProd]
-  simp [Fintype.sum_mul_sum, Fintype.sum_prod_type]
+  suffices h :
+    ∑ i, ∑ j, S1 i * S2 j * (M1.step i a s1 * M2.step j a s2) =
+    ∑ i, ∑ j, S1 i * M1.step i a s1 * (S2 j * M2.step j a s2) by
+    simpa [stepSet, combineProd, Fintype.sum_mul_sum, Fintype.sum_prod_type]
   ac_nf
 
 theorem acceptsFrom_inter {S1 : σ1 → κ} {S2 : σ2 → κ} :
@@ -1220,7 +1214,10 @@ theorem acceptsFrom_inter {S1 : σ1 → κ} {S2 : σ2 → κ} :
   rw [WeightedLanguage.pointwise_prod]
   induction x generalizing S1 S2 with
   | nil =>
-    simp [combineProd, Fintype.sum_mul_sum, Fintype.sum_prod_type]
+    suffices h :
+      ∑ i, ∑ j, S1 i * S2 j * (M1.final i * M2.final j) =
+      ∑ i, ∑ j, S1 i * M1.final i * (S2 j * M2.final j) by
+      simpa [combineProd, Fintype.sum_mul_sum, Fintype.sum_prod_type]
     ac_nf
   | cons a x ih =>
     simp [stepSet_inter, ih]
@@ -1244,15 +1241,19 @@ theorem combineSum_apply_inr {S1 : σ1 → κ} {S2 : σ2 → κ} {s : σ2} :
     combineSum S1 S2 (Sum.inr s) = S2 s :=
   rfl
 
-variable [W : Semiring κ] [Fintype σ1] [Fintype σ2] (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
+variable [W : Semiring κ]
 
 theorem combineSum_separate {S1 : σ1 → κ} {S2 : σ2 → κ} :
     combineSum S1 S2 = combineSum S1 0 + combineSum 0 S2 := by
   ext (s1 | s2) <;> simp
 
+variable (M1 : WNFA₃ α σ1 κ) (M2 : WNFA₃ α σ2 κ)
+
 @[simp]
 def concatStart : σ1 ⊕ σ2 → κ :=
   combineSum M1.start 0
+
+variable [Fintype σ2]
 
 @[simp]
 def concatFinal : σ1 ⊕ σ2 → κ :=
@@ -1270,8 +1271,8 @@ def concat : WNFA₃ α (σ1 ⊕ σ2) κ where
   start := M1.concatStart
   final := M1.concatFinal M2
 
-instance : HMul (WNFA₃ α σ1 κ) (WNFA₃ α σ2 κ) (WNFA₃ α (σ1 ⊕ σ2) κ) :=
-  ⟨concat⟩
+instance : HMul (WNFA₃ α σ1 κ) (WNFA₃ α σ2 κ) (WNFA₃ α (σ1 ⊕ σ2) κ) where
+  hMul M1 M2 := M1.concat M2
 
 theorem hmul_eq_concat : M1 * M2 = M1.concat M2 := by
   rfl
@@ -1288,6 +1289,8 @@ theorem hmul_concat_start : (M1 * M2).start = M1.concatStart := by
 theorem hmul_concat_final : (M1 * M2).final = M1.concatFinal M2 := by
   rfl
 
+variable [Fintype σ1]
+
 theorem stepSet_hmul_inr {S2 : σ2 → κ} {a : α} :
     (M1 * M2).stepSet (combineSum 0 S2) a = combineSum 0 (M2.stepSet S2 a) := by
   ext (s1 | s2) <;> simp [stepSet, combineSum]
@@ -1298,8 +1301,6 @@ theorem acceptsFrom_hmul_inr {S2 : σ2 → κ} :
   induction y generalizing S2 with
   | nil => simp [combineSum]
   | cons a y ih => simp [stepSet_hmul_inr, ih]
-
-variable [DecidableEq σ1] [DecidableEq σ2] [DecidableEq α]
 
 theorem acceptsFrom_hmul {S1 : σ1 → κ} :
     (M1 * M2).acceptsFrom (combineSum S1 0) = M1.acceptsFrom S1 * M2.accepts := by
@@ -1326,6 +1327,7 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
       rw [combineSum_separate, acceptsFrom_add, WeightedLanguage.add_apply, ih,
         acceptsFrom_hmul_inr]
     }
+    open scoped Classical in
     simp [W.left_distrib, Finset.sum_add_distrib,
       acceptsFrom_compose_mul, acceptsFrom_sum, accepts, stepSet, Finset.sum_mul,
       Finset.mul_sum, WeightedLanguage.mul_as_sum_over_prod,
@@ -1369,57 +1371,21 @@ theorem rev_final_eq_revFinal : M.rev.final = M.revFinal :=
 
 variable [W : CommSemiring κ] [Fintype σ]
 
-def revStepSet (S : σ → κ) (a : α) : σ → κ :=
-  ∑ s : σ, (· * S s) ∘ M.revStep s a
-
-@[simp]
-theorem rev_stepSet_eq_revStepSet :
-    M.rev.stepSet = M.revStepSet := by
-  ext S a s
-  simp [stepSet, revStepSet]
-  ac_nf
-
-def revEvalFrom : (σ → κ) → List α → σ → κ := List.foldl M.revStepSet
-
-@[simp]
-theorem revEvalFrom_nil {S : σ → κ} : M.revEvalFrom S [] = S :=
-  rfl
-
-@[simp]
-theorem revEvalFrom_cons {S : σ → κ} {a : α} (x : List α) :
-    M.revEvalFrom S (a :: x) = M.revEvalFrom (M.revStepSet S a) x :=
-  rfl
-
-@[simp]
-theorem rev_evalFrom_eq_revEvalFrom :
-    M.rev.evalFrom = M.revEvalFrom := by
-  ext S
-  simp [revEvalFrom, evalFrom]
-
-def revAcceptsFrom (S : σ → κ) : WeightedLanguage α κ :=
-  fun x ↦ ∑ s : σ, M.start s * M.revEvalFrom S x s
-
-@[simp]
-theorem rev_acceptsFrom_eq_revAcceptsFrom :
-    M.rev.acceptsFrom = M.revAcceptsFrom := by
-  ext S
-  simp [acceptsFrom, revAcceptsFrom]
-  ac_nf
-
-theorem sum_revEvalFrom_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
-    ∑ s : σ, M.revEvalFrom S2 x s * S1 s = ∑ s : σ, M.evalFrom S1 x.reverse s * S2 s := by
+theorem rev_evalFrom_eq_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
+    ∑ s : σ, M.rev.evalFrom S2 x s * S1 s = ∑ s : σ, M.evalFrom S1 x.reverse s * S2 s := by
   induction x generalizing S1 S2 with
-  | nil =>
-    simp
-    ac_nf
+  | nil => simp [W.mul_comm (S1 _) (S2 _)]
   | cons a x ih =>
-    simp [revStepSet, stepSet, ih, Finset.mul_sum, Finset.sum_mul]
+    suffices h :
+      ∑ i, ∑ j, M.evalFrom S1 x.reverse i * (S2 j * M.step i a j) =
+      ∑ j, ∑ i, M.evalFrom S1 x.reverse i * M.step i a j * S2 j by
+      simpa [stepSet, ih, Finset.mul_sum, Finset.sum_mul]
     rw [Finset.sum_comm]
     ac_nf
 
 theorem accepts_rev : M.rev.accepts = M.accepts.rev := by
   ext x
-  simp [accepts, acceptsFrom, sum_revEvalFrom_evalFrom_reverse]
+  simp [accepts, acceptsFrom, rev_evalFrom_eq_evalFrom_reverse]
 
 end reverse
 
