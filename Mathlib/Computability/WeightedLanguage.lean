@@ -56,8 +56,9 @@ instance : FunLike (WeightedLanguage α κ) (List α) κ where
   coe := id
   coe_injective' := Function.injective_id
 
+/-- Compose a weighted language with some transformation. -/
 @[simp]
-def preimage (f : WeightedLanguage α κ) (g : List α → List α) : WeightedLanguage α κ :=
+def preimage {β : Type*} (f : WeightedLanguage β κ) (g : List α → List β) : WeightedLanguage α κ :=
   f ∘ g
 
 section zero
@@ -215,29 +216,29 @@ lemma cauchy_prod_right_distrib (f g h : WeightedLanguage α κ) :
 
 /-- Left-associative cauchy product between three languages. -/
 def cauchy_prod₃_left (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
-  List.sum ∘ (List.map (fun x ↦ (f x.1 * g x.2.1) * h x.2.2)) ∘ List.splits₃_left
+  List.sum ∘ (List.map (fun x ↦ (f x.1 * g x.2.1) * h x.2.2)) ∘ List.splits₃Left
 
 lemma cauchy_prod₃_left_eq (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = cauchy_prod₃_left f g h := by
   ext x
-  simp [cauchy_prod, cauchy_prod₃_left, List.splits₃_left, splits, Function.comp_def,
+  simp [cauchy_prod, cauchy_prod₃_left, List.splits₃Left, splits, Function.comp_def,
     ←List.sum_map_mul_right, List.flatMap_def]
 
 /-- Right-associative cauchy product between three languages. -/
 def cauchy_prod₃_right (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
-  List.sum ∘ (List.map (fun x ↦ f x.1 * (g x.2.1 * h x.2.2))) ∘ List.splits₃_right
+  List.sum ∘ (List.map (fun x ↦ f x.1 * (g x.2.1 * h x.2.2))) ∘ List.splits₃Right
 
 lemma cauchy_prod₃_right_eq (f g h : WeightedLanguage α κ) :
     f.cauchy_prod (g.cauchy_prod h) = cauchy_prod₃_right f g h := by
   ext x
-  simp [cauchy_prod, cauchy_prod₃_right, List.splits₃_right, splits, Function.comp_def,
+  simp [cauchy_prod, cauchy_prod₃_right, List.splits₃Right, splits, Function.comp_def,
     ←List.sum_map_mul_left, List.flatMap_def]
 
 lemma cauchy_prod₃_left_right (f g h : WeightedLanguage α κ) :
     cauchy_prod₃_left f g h = cauchy_prod₃_right f g h := by
   ext l
   simp only [cauchy_prod₃_left, cauchy_prod₃_right, Function.comp_def, W.mul_assoc]
-  apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits₃_left_right_perm]
+  apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits₃LeftRight]
 
 lemma cauchy_prod_assoc (f g h : WeightedLanguage α κ) :
     (f.cauchy_prod g).cauchy_prod h = f.cauchy_prod (g.cauchy_prod h) := by
@@ -265,7 +266,7 @@ lemma mul_def_assoc (f g h : WeightedLanguage α κ) : (f * g) * h = f * (g * h)
 
 lemma mul_as_sum_over_prod [DecidableEq α] (f g : WeightedLanguage α κ) (x : List α) :
     (f * g) x = ∑ y ∈ x.splits.toFinset, f y.1 * g y.2 := by
-  simp [mul_apply, cauchy_prod, List.sum_toFinset _ <| List.Nodup.splits_nodup x]
+  simp [mul_apply, cauchy_prod, List.sum_toFinset _ <| List.Nodup.splits]
 
 @[simp]
 lemma mul_apply_nil (f g : WeightedLanguage α κ) : (f * g) [] = f [] * g [] := by
@@ -277,7 +278,7 @@ lemma mul_apply_cons (f g : WeightedLanguage α κ) (a : α) (x : List α) :
     = f [] * g (a :: x)
     + (f.preimage (a :: ·) * g) x
     := by
-  simp [mul_apply, cauchy_prod, Function.comp_def]
+  simp [mul_apply, cauchy_prod, Function.comp_def, List.splits_cons]
 
 end cauchy
 
