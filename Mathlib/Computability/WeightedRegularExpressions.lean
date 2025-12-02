@@ -23,6 +23,29 @@ open List
 
 universe u k
 
+namespace List
+
+variable {α : Type u}
+
+theorem splits_append_singleton {x : List α} (a : α) :
+    (x ++ [a]).splits = x.splits.map (fun td ↦ (td.1, td.2 ++ [a])) ++ [(x ++ [a], [])] := by
+  induction x generalizing a with
+  | nil => simp [List.splits_cons]
+  | cons b x ih => simp [List.splits_cons, ih]
+
+theorem splits_append {x y : List α} :
+    (x ++ y).splits =
+    x.splits ++ y.splits := by
+  sorry
+
+theorem splits_reverse {l : List α} :
+    l.reverse.splits = (l.splits.map (fun td ↦ (td.2.reverse, td.1.reverse))).reverse := by
+  induction l with
+  | nil => simp
+  | cons a l ih => simp [List.splits_cons, splits_append_singleton, ih]
+
+end List
+
 /-- This is the definition of *semiring-weighted* regular expressions. We mirror uniweghted
 `RegularExpression` data type.
 * `w` matchs the empty string with weight `w`
@@ -117,6 +140,30 @@ theorem matches'_pow (P : WRegExp α κ) (n : ℕ) : (P ^ n).matches' = P.matche
     rfl
 
 end matches'
+
+section rev
+
+@[simp]
+def rev : WRegExp α κ → WRegExp α κ
+| weight w => weight w
+| char a => char a
+| P + Q => P.rev + Q.rev
+| P * Q => Q.rev * P.rev
+
+variable [DecidableEq α] [W : CommSemiring κ]
+
+theorem rev_matches' (P : WRegExp α κ) : P.rev.matches' = P.matches'.rev := by
+  ext x
+  rw [WeightedLanguage.rev, Function.comp_apply]
+  induction P generalizing x with
+  | weight w => cases x <;> simp [WeightedLanguage.onlyNil_gives_zero]
+  | char a => simp
+  | plus P Q ihp ihq => simp [ihp, ihq]
+  | comp P Q ihp ihq =>
+    simp [WeightedLanguage.mul_apply, WeightedLanguage.cauchy_prod, List.splits_reverse,
+      Function.comp_def, ihp, ihq, W.mul_comm (P.matches' _)]
+
+end rev
 
 section toWNFA
 
