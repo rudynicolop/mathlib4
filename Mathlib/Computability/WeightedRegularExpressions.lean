@@ -33,11 +33,6 @@ theorem splits_append_singleton {x : List α} (a : α) :
   | nil => simp [List.splits_cons]
   | cons b x ih => simp [List.splits_cons, ih]
 
-theorem splits_append {x y : List α} :
-    (x ++ y).splits =
-    x.splits ++ y.splits := by
-  sorry
-
 theorem splits_reverse {l : List α} :
     l.reverse.splits = (l.splits.map (fun td ↦ (td.2.reverse, td.1.reverse))).reverse := by
   induction l with
