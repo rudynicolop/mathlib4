@@ -25,8 +25,6 @@ high-level intuition.
 
 The main result in this file is the construction of a semiring for weighted languages.
 
-TODO: fix naming conventions.
-
 ## References
 
 * [Advanced Formal Language Theory: Regular Languages][weighted-regular-languages]
@@ -61,6 +59,9 @@ instance : FunLike (WeightedLanguage α κ) (List α) κ where
 def preimage {β : Type*} (f : WeightedLanguage β κ) (g : List α → List β) : WeightedLanguage α κ :=
   f ∘ g
 
+/-- Reverse a weighted language. -/
+def reverse (f : WeightedLanguage α κ) : WeightedLanguage α κ := f ∘ List.reverse
+
 section zero
 
 variable [Zero κ]
@@ -69,7 +70,7 @@ variable [Zero κ]
 instance instZero : Zero (WeightedLanguage α κ) :=
   ⟨fun _ ↦ 0⟩
 
-lemma zero_def_eq : (0 : WeightedLanguage α κ) = fun (_ : List α) ↦ (0 : κ) :=
+lemma zero_def : (0 : WeightedLanguage α κ) = fun (_ : List α) ↦ (0 : κ) :=
   rfl
 
 @[simp]
@@ -113,7 +114,7 @@ lemma onlyNil_eq (xs : List α) :
 instance instOne : One (WeightedLanguage α κ) :=
   ⟨onlyNil⟩
 
-lemma one_def_eq : (1 : WeightedLanguage α κ) = onlyNil :=
+lemma one_def : (1 : WeightedLanguage α κ) = onlyNil :=
   rfl
 
 @[simp]
@@ -131,37 +132,33 @@ section add
 
 variable [W : AddCommMonoid κ]
 
-/-- The weighted language [f.add_def g] assigns the pointwise sum `f x + g x` for all strings `x`.
-`(f +ₗ g)(x) = f(x) + g(x)`. -/
-def add_def (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
-  fun x ↦ f x + g x
-
+/-- The weighted language [f + g] assigns the pointwise sum `f x + g x` for all strings `x`.
+`(f + g)(x) = f(x) + g(x)`. -/
 instance instAdd : Add (WeightedLanguage α κ) where
-  add := add_def
+  add f g := fun x ↦ f x + g x
 
-lemma add_def_eq (f g : WeightedLanguage α κ) : f + g = add_def f g :=
+lemma add_def (f g : WeightedLanguage α κ) : f + g = fun x ↦ f x + g x :=
   rfl
 
 @[simp]
 lemma add_apply (f g : WeightedLanguage α κ) (x : List α) : (f + g) x = f x + g x :=
   rfl
 
-lemma add_def_comm (f g : WeightedLanguage α κ) : f + g = g + f := by
-  simp only [add_def_eq]
+lemma add_comm (f g : WeightedLanguage α κ) : f + g = g + f := by
   ext x
-  apply W.add_comm
+  simp [W.add_comm (f _)]
 
-lemma add_def_assoc (f g h : WeightedLanguage α κ) : (f + g) + h = f + (g + h) := by
+lemma add_assoc (f g h : WeightedLanguage α κ) : (f + g) + h = f + (g + h) := by
   ext x
   simp [W.add_assoc]
 
 @[simp]
-lemma zero_add_def (f : WeightedLanguage α κ) : 0 + f = f := by
+lemma zero_add (f : WeightedLanguage α κ) : 0 + f = f := by
   ext x
   simp
 
 @[simp]
-lemma add_def_zero (f : WeightedLanguage α κ) : f + 0 = f := by
+lemma add_zero (f : WeightedLanguage α κ) : f + 0 = f := by
   ext x
   simp
 
@@ -171,106 +168,106 @@ section cauchy
 
 variable [W : Semiring κ]
 
-/-- The weighted language [f.cauchy_prod g] represents the multiplication of `f` and `g`.
+/-- The weighted language [f.cauchy g] represents the multiplication of `f` and `g`.
 `(f ×ₗ g)(x) = ∑ f(x₁) × g(x₂)` for all `x₁, x₂` such that `x = x₁ ++ x₂`. -/
-def cauchy_prod (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
+def cauchy (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
   List.sum ∘ (List.map (fun x ↦ f x.1 * g x.2)) ∘ List.splits
 
 @[simp]
-lemma zero_cauchy_prod (f : WeightedLanguage α κ) :
-    (0 : WeightedLanguage α κ).cauchy_prod f = 0 := by
+lemma zero_cauchy (f : WeightedLanguage α κ) :
+    (0 : WeightedLanguage α κ).cauchy f = 0 := by
   ext x
-  simp [cauchy_prod]
+  simp [cauchy]
 
 @[simp]
-lemma cauchy_prod_zero (f : WeightedLanguage α κ) : f.cauchy_prod 0 = 0 := by
+lemma cauchy_zero (f : WeightedLanguage α κ) : f.cauchy 0 = 0 := by
   ext x
-  simp [cauchy_prod]
+  simp [cauchy]
 
 @[simp]
-lemma one_cauchy_prod (f : WeightedLanguage α κ) :
-    (1 : WeightedLanguage α κ).cauchy_prod f = f := by
+lemma one_cauchy (f : WeightedLanguage α κ) :
+    (1 : WeightedLanguage α κ).cauchy f = f := by
   ext x
   cases x <;>
-  simp [cauchy_prod, Function.comp_def, splits, range_succ_eq_map]
+  simp [cauchy, Function.comp_def, splits, range_succ_eq_map]
 
 @[simp]
-lemma cauchy_prod_one (f : WeightedLanguage α κ) :
-    f.cauchy_prod (1 : WeightedLanguage α κ) = f := by
+lemma cauchy_one (f : WeightedLanguage α κ) :
+    f.cauchy (1 : WeightedLanguage α κ) = f := by
   ext x
   have hallzero : ∀ n ∈ range x.length,
       (if 0 < x.length - n then (0 : κ) else f (take n x)) = (0 : κ) := by
     simp only [mem_range, ite_eq_left_iff, not_lt, Nat.le_zero_eq]; omega
-  simp [cauchy_prod, Function.comp_def, onlyNil_eq, splits, List.range_add,
+  simp [cauchy, Function.comp_def, onlyNil_eq, splits, List.range_add,
     List.map_eq_replicate_iff.mpr hallzero]
 
-lemma cauchy_prod_left_distrib (f g h : WeightedLanguage α κ) :
-    f.cauchy_prod (g + h) = f.cauchy_prod g + f.cauchy_prod h := by
+lemma cauchy_left_distrib (f g h : WeightedLanguage α κ) :
+    f.cauchy (g + h) = f.cauchy g + f.cauchy h := by
   ext x
-  simp [cauchy_prod, splits, Function.comp_def, W.left_distrib]
+  simp [cauchy, splits, Function.comp_def, W.left_distrib]
 
-lemma cauchy_prod_right_distrib (f g h : WeightedLanguage α κ) :
-    (g + h).cauchy_prod f = g.cauchy_prod f + h.cauchy_prod f := by
+lemma cauchy_right_distrib (f g h : WeightedLanguage α κ) :
+    (g + h).cauchy f = g.cauchy f + h.cauchy f := by
   ext x
-  simp [cauchy_prod, splits, Function.comp_def, W.right_distrib]
+  simp [cauchy, splits, Function.comp_def, W.right_distrib]
 
 /-- Left-associative cauchy product between three languages. -/
-def cauchy_prod₃_left (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
+def cauchy₃Left (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
   List.sum ∘ (List.map (fun x ↦ (f x.1 * g x.2.1) * h x.2.2)) ∘ List.splits₃Left
 
-lemma cauchy_prod₃_left_eq (f g h : WeightedLanguage α κ) :
-    (f.cauchy_prod g).cauchy_prod h = cauchy_prod₃_left f g h := by
+lemma cauchy₃Left_eq (f g h : WeightedLanguage α κ) :
+    (f.cauchy g).cauchy h = cauchy₃Left f g h := by
   ext x
-  simp [cauchy_prod, cauchy_prod₃_left, List.splits₃Left, splits, Function.comp_def,
+  simp [cauchy, cauchy₃Left, List.splits₃Left, splits, Function.comp_def,
     ←List.sum_map_mul_right, List.flatMap_def]
 
 /-- Right-associative cauchy product between three languages. -/
-def cauchy_prod₃_right (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
+def cauchy₃Right (f g h : WeightedLanguage α κ) : WeightedLanguage α κ :=
   List.sum ∘ (List.map (fun x ↦ f x.1 * (g x.2.1 * h x.2.2))) ∘ List.splits₃Right
 
-lemma cauchy_prod₃_right_eq (f g h : WeightedLanguage α κ) :
-    f.cauchy_prod (g.cauchy_prod h) = cauchy_prod₃_right f g h := by
+lemma cauchy₃Right_eq (f g h : WeightedLanguage α κ) :
+    f.cauchy (g.cauchy h) = cauchy₃Right f g h := by
   ext x
-  simp [cauchy_prod, cauchy_prod₃_right, List.splits₃Right, splits, Function.comp_def,
+  simp [cauchy, cauchy₃Right, List.splits₃Right, splits, Function.comp_def,
     ←List.sum_map_mul_left, List.flatMap_def]
 
-lemma cauchy_prod₃_left_right (f g h : WeightedLanguage α κ) :
-    cauchy_prod₃_left f g h = cauchy_prod₃_right f g h := by
+lemma cauchy₃LeftRight (f g h : WeightedLanguage α κ) :
+    cauchy₃Left f g h = cauchy₃Right f g h := by
   ext l
-  simp only [cauchy_prod₃_left, cauchy_prod₃_right, Function.comp_def, W.mul_assoc]
+  simp only [cauchy₃Left, cauchy₃Right, Function.comp_def, W.mul_assoc]
   apply_rules [List.Perm.sum_eq, List.Perm.map, Perm.splits₃LeftRight]
 
-lemma cauchy_prod_assoc (f g h : WeightedLanguage α κ) :
-    (f.cauchy_prod g).cauchy_prod h = f.cauchy_prod (g.cauchy_prod h) := by
-  rw [cauchy_prod₃_left_eq, cauchy_prod₃_left_right, cauchy_prod₃_right_eq]
+lemma cauchy_assoc (f g h : WeightedLanguage α κ) :
+    (f.cauchy g).cauchy h = f.cauchy (g.cauchy h) := by
+  rw [cauchy₃Left_eq, cauchy₃LeftRight, cauchy₃Right_eq]
 
 instance instMul : Mul (WeightedLanguage α κ) where
-  mul := cauchy_prod
+  mul := cauchy
 
-lemma mul_def_eq (f g : WeightedLanguage α κ) : f * g = cauchy_prod f g :=
+lemma mul_def (f g : WeightedLanguage α κ) : f * g = cauchy f g :=
   rfl
 
-lemma mul_apply (f g : WeightedLanguage α κ) (x : List α) : (f * g) x = f.cauchy_prod g x :=
+lemma mul_apply (f g : WeightedLanguage α κ) (x : List α) : (f * g) x = f.cauchy g x :=
   rfl
 
-lemma mul_def_left_distrib (f g h : WeightedLanguage α κ) :
+lemma mul_left_distrib (f g h : WeightedLanguage α κ) :
     f * (g + h) = f * g + f * h := by
-  simp [mul_def_eq, cauchy_prod_left_distrib]
+  simp [mul_def, cauchy_left_distrib]
 
-lemma mul_def_right_distrib (f g h : WeightedLanguage α κ) :
+lemma mul_right_distrib (f g h : WeightedLanguage α κ) :
     (f + g) * h = f * h + g * h := by
-  simp [mul_def_eq, cauchy_prod_right_distrib]
+  simp [mul_def, cauchy_right_distrib]
 
-lemma mul_def_assoc (f g h : WeightedLanguage α κ) : (f * g) * h = f * (g * h) := by
-  simp [mul_def_eq, cauchy_prod_assoc]
+lemma mul_assoc (f g h : WeightedLanguage α κ) : (f * g) * h = f * (g * h) := by
+  simp [mul_def, cauchy_assoc]
 
 lemma mul_as_sum_over_prod [DecidableEq α] (f g : WeightedLanguage α κ) (x : List α) :
     (f * g) x = ∑ y ∈ x.splits.toFinset, f y.1 * g y.2 := by
-  simp [mul_apply, cauchy_prod, List.sum_toFinset _ <| List.Nodup.splits]
+  simp [mul_apply, cauchy, List.sum_toFinset _ <| List.Nodup.splits]
 
 @[simp]
 lemma mul_apply_nil (f g : WeightedLanguage α κ) : (f * g) [] = f [] * g [] := by
-  simp [mul_apply, cauchy_prod]
+  simp [mul_apply, cauchy]
 
 @[simp]
 lemma mul_apply_cons (f g : WeightedLanguage α κ) (a : α) (x : List α) :
@@ -278,67 +275,75 @@ lemma mul_apply_cons (f g : WeightedLanguage α κ) (a : α) (x : List α) :
     = f [] * g (a :: x)
     + (f.preimage (a :: ·) * g) x
     := by
-  simp [mul_apply, cauchy_prod, Function.comp_def, List.splits_cons]
+  simp [mul_apply, cauchy, Function.comp_def, List.splits_cons]
 
 end cauchy
+
+section comm
+
+variable [W : CommSemiring κ]
+
+lemma cauchy_reverse (f g : WeightedLanguage α κ) :
+    (f.cauchy g).reverse = g.reverse.cauchy f.reverse := by
+  ext x
+  simp [cauchy, reverse, List.splits_reverse, Function.comp_def, W.mul_comm (f _)]
+
+lemma mul_reverse (f g : WeightedLanguage α κ) :
+    (f * g).reverse = g.reverse * f.reverse := by
+  simp [mul_def, cauchy_reverse]
+
+end comm
 
 section scalar
 
 variable [Mul κ]
 
-/-- `f.pointwise_prod g` represents the Hadmard product of `f` and `g`. -/
-def pointwise_prod [Mul κ] (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
+/-- `f.hadamard g` represents the Hadamard product of `f` and `g`. -/
+def hadamard [Mul κ] (f g : WeightedLanguage α κ) : WeightedLanguage α κ :=
   fun x ↦ f x * g x
 
 @[simp]
-lemma pointwise_prod_apply (f g : WeightedLanguage α κ) (x : List α) :
-    (f.pointwise_prod g) x = f x * g x := by
+lemma hadamard_apply (f g : WeightedLanguage α κ) (x : List α) :
+    (f.hadamard g) x = f x * g x := by
   rfl
 
-/-- `scalar_prodl w f` assigns `w * f x` for all `x`. -/
-def scalar_prodl (w : κ) (f : WeightedLanguage α κ) : WeightedLanguage α κ :=
-  fun x ↦ w * f x
+/-- `w • f` is the left scalar product, assigns `w * f x` for all `x`. -/
+instance : SMul κ (WeightedLanguage α κ) where
+  smul w f := fun x ↦ w * f x
 
 @[simp]
-lemma scalar_prodl_apply (w : κ) (f : WeightedLanguage α κ) (x : List α) :
-    scalar_prodl w f x = w * f x :=
+lemma smul_apply (w : κ) (f : WeightedLanguage α κ) (x : List α) :
+    (w • f) x = w * f x :=
   rfl
 
-/-- `scalar_prodr f w` assigns `f x * w` for all `x`. -/
-def scalar_prodr (f : WeightedLanguage α κ) (w : κ) : WeightedLanguage α κ :=
+/-- `scalarRight f w`: is the right scalar product, assigns `f x * w` for all `x`. -/
+def scalarRight (f : WeightedLanguage α κ) (w : κ) : WeightedLanguage α κ :=
   fun x ↦ f x * w
 
 @[simp]
-lemma scalar_prodr_apply (f : WeightedLanguage α κ) (w : κ) (x : List α) :
-     f.scalar_prodr w x = f x * w :=
+lemma scalarRight_apply (f : WeightedLanguage α κ) (w : κ) (x : List α) :
+     f.scalarRight w x = f x * w :=
   rfl
 
 end scalar
-
-/-- `(x, w) ∈ f` when `f x = w`. -/
-def mem_def (f : WeightedLanguage α κ) (xw : List α × κ) : Prop :=
-  f xw.1 = xw.2
-
-instance instMem : Membership (List α × κ) (WeightedLanguage α κ) where
-  mem := mem_def
 
 section natCast
 
 variable [AddCommMonoid κ] [One κ]
 
-/-- `natCast_def n` assigns a weighted language for `n`. -/
-def natCast_def : ℕ → WeightedLanguage α κ
+/-- `natCast n` assigns a weighted language for `n`. -/
+def natCast : ℕ → WeightedLanguage α κ
   | 0 => 0
-  | n + 1 => natCast_def n + 1
+  | n + 1 => natCast n + 1
 
 instance instNatCast : NatCast (WeightedLanguage α κ) where
-  natCast := natCast_def
+  natCast := natCast
 
-lemma natCast_def_eq (n : ℕ) : (↑ n : WeightedLanguage α κ) = natCast_def n :=
+lemma natCast_zero (n : ℕ) : (↑ n : WeightedLanguage α κ) = natCast n :=
   rfl
 
-lemma natCast_def_succ (n : ℕ) : ↑ ((n + 1) : ℕ) = (((↑ n) + 1) : WeightedLanguage α κ) := by
-  simp [natCast_def_eq, add_def_eq, one_def_eq, natCast_def, add_def_eq, one_def_eq]
+lemma natCast_succ (n : ℕ) : ↑ ((n + 1) : ℕ) = (((↑ n) + 1) : WeightedLanguage α κ) :=
+  rfl
 
 end natCast
 
@@ -346,51 +351,32 @@ section npow
 
 variable [Semiring κ]
 
-/-- `npow_def n f` raises `f` to the `n`th power. -/
-def npow_def (n : ℕ) (f : WeightedLanguage α κ) : WeightedLanguage α κ :=
+/-- `npow n f` raises `f` to the `n`th power. -/
+def npow (n : ℕ) (f : WeightedLanguage α κ) : WeightedLanguage α κ :=
   match n with
   | 0 => 1
-  | n + 1 => npow_def n f * f
+  | n + 1 => npow n f * f
 
-lemma npow_def_zero (f : WeightedLanguage α κ) : npow_def 0 f = 1 := by
-  simp [npow_def]
+lemma npow_zero (f : WeightedLanguage α κ) : npow 0 f = 1 := by
+  simp [npow]
 
-lemma npow_def_succ (n : ℕ) (f : WeightedLanguage α κ) : npow_def (n + 1) f = npow_def n f * f := by
-  rw (occs := [1]) [npow_def]
+lemma npow_succ (n : ℕ) (f : WeightedLanguage α κ) : npow (n + 1) f = npow n f * f := by
+  rw (occs := [1]) [npow]
 
 end npow
 
-section nsmul
-
-variable [AddCommMonoid κ]
-
-/-- `nsmul_def n f` adds `f` with itself `n` times. -/
-def nsmul_def (n : ℕ) (f : WeightedLanguage α κ) :=
-  match n with
-  | 0 => 0
-  | n + 1 => nsmul_def n f + f
-
-lemma nsmul_def_zero (f : WeightedLanguage α κ) : nsmul_def 0 f = 0 := by
-  simp [nsmul_def]
-
-lemma nsmul_def_succ (n : ℕ) (f : WeightedLanguage α κ) :
-    nsmul_def (n + 1) f = nsmul_def n f + f := by
-  rw (occs := [1]) [nsmul_def]
-
-end nsmul
-
 instance instSemiring [Semiring κ] : Semiring (WeightedLanguage α κ) where
-  add_assoc := add_def_assoc
-  zero_add := zero_add_def
-  add_zero := add_def_zero
-  add_comm := add_def_comm
-  left_distrib := mul_def_left_distrib
-  right_distrib := mul_def_right_distrib
-  zero_mul := zero_cauchy_prod
-  mul_zero := cauchy_prod_zero
-  mul_assoc := mul_def_assoc
-  one_mul := one_cauchy_prod
-  mul_one := cauchy_prod_one
-  nsmul := nsmul_def
+  add_assoc := add_assoc
+  zero_add := zero_add
+  add_zero := add_zero
+  add_comm := add_comm
+  left_distrib := mul_left_distrib
+  right_distrib := mul_right_distrib
+  zero_mul := zero_cauchy
+  mul_zero := cauchy_zero
+  mul_assoc := mul_assoc
+  one_mul := one_cauchy
+  mul_one := cauchy_one
+  nsmul := nsmulRec
 
 end WeightedLanguage
