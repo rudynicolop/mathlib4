@@ -23,38 +23,6 @@ open List
 
 universe u k
 
-namespace List
-
-variable {α : Type u}
-
-theorem splits_append_tail {x y : List α} :
-    (x ++ y).splits =
-    (x.splits.map (fun td ↦ (td.1, td.2 ++ y)))
-    ++ (y.splits.map (fun td ↦ (x ++ td.1, td.2))).tail := by
-  induction x generalizing y with
-  | nil => cases y <;> simp [List.splits_cons]
-  | cons a x ih => simp [List.splits_cons, ih, Function.comp_def, ←List.map_tail]
-
-theorem splits_append_dropLast {x y : List α} :
-    (x ++ y).splits =
-    (x.splits.map (fun td ↦ (td.1, td.2 ++ y))).dropLast
-    ++ (y.splits.map (fun td ↦ (x ++ td.1, td.2))) := by
-  rw [splits_append_tail]
-  rcases (List.eq_nil_or_concat' x) with (rfl | ⟨z, a, rfl⟩) <;>
-  rcases y with (_ | ⟨b, y⟩) <;> simp [List.splits_append_tail, List.splits_cons]
-
-theorem splits_append_singleton {x : List α} (a : α) :
-    (x ++ [a]).splits = x.splits.map (fun td ↦ (td.1, td.2 ++ [a])) ++ [(x ++ [a], [])] := by
-  simp [splits_append_tail, List.splits_cons]
-
-theorem splits_reverse {l : List α} :
-    l.reverse.splits = (l.splits.map (fun td ↦ (td.2.reverse, td.1.reverse))).reverse := by
-  induction l with
-  | nil => simp
-  | cons a l ih => simp [List.splits_cons, splits_append_singleton, ih]
-
-end List
-
 /-- This is the definition of *semiring-weighted* regular expressions. We mirror uniweghted
 `RegularExpression` data type.
 * `w` matchs the empty string with weight `w`
@@ -124,7 +92,7 @@ Not named `matches` since that is a reserved word.
 -/
 @[simp]
 def matches' : WRegExp α κ → WeightedLanguage α κ
-  | weight w => WeightedLanguage.scalar_prodl w 1
+  | weight w => w • 1
   | char a => fun x ↦ if x = [a] then 1 else 0
   | P + Q => P.matches' + Q.matches'
   | P * Q => P.matches' * Q.matches'
@@ -142,37 +110,41 @@ theorem matches'_mul (P Q : WRegExp α κ) : (P * Q).matches' = P.matches' * Q.m
 theorem matches'_pow (P : WRegExp α κ) (n : ℕ) : (P ^ n).matches' = P.matches' ^ n := by
   induction n generalizing P
   case zero =>
-    funext x
-    simp [pow_zero, ←pow_def, npowRec.eq_def, WeightedLanguage.scalar_prodl]
+    ext x
+    simp [pow_zero, ←pow_def, npowRec.eq_def]
   case succ n ih =>
     simp only [pow_succ, ←ih]
     rfl
 
 end matches'
 
-section rev
+section reverse
 
 @[simp]
-def rev : WRegExp α κ → WRegExp α κ
+def reverse : WRegExp α κ → WRegExp α κ
 | weight w => weight w
 | char a => char a
-| P + Q => P.rev + Q.rev
-| P * Q => Q.rev * P.rev
+| P + Q => P.reverse + Q.reverse
+| P * Q => Q.reverse * P.reverse
 
 variable [DecidableEq α] [W : CommSemiring κ]
 
-theorem rev_matches' (P : WRegExp α κ) : P.rev.matches' = P.matches'.rev := by
-  ext x
-  rw [WeightedLanguage.rev, Function.comp_apply]
-  induction P generalizing x with
-  | weight w => cases x <;> simp [WeightedLanguage.onlyNil_gives_zero]
-  | char a => simp
-  | plus P Q ihp ihq => simp [ihp, ihq]
+theorem reverse_matches' (P : WRegExp α κ) : P.reverse.matches' = P.matches'.reverse := by
+  induction P with
+  | weight w =>
+    ext x
+    cases x <;>
+    simp [WeightedLanguage.onlyNil_gives_zero, WeightedLanguage.reverse]
+  | char a =>
+    ext x
+    simp [WeightedLanguage.reverse]
+  | plus P Q ihp ihq =>
+    ext x
+    simp [ihp, ihq, WeightedLanguage.reverse]
   | comp P Q ihp ihq =>
-    simp [WeightedLanguage.mul_apply, WeightedLanguage.cauchy_prod, List.splits_reverse,
-      Function.comp_def, ihp, ihq, W.mul_comm (P.matches' _)]
+    simp [WeightedLanguage.mul_reverse, ihp, ihq]
 
-end rev
+end reverse
 
 section toWNFA
 
@@ -244,19 +216,19 @@ instance instFintypeStates {r : WRegExp α κ} : Fintype r.states where
 variable [DecidableEq α] [W : Semiring κ]
 
 @[simp]
-def toWNFA : ∀ (r : WRegExp α κ), WNFA₃ α r.states κ
-| weight w => WNFA₃.empty w
-| char a => WNFA₃.char a
+def toWNFA : ∀ (r : WRegExp α κ), WNFA α r.states κ
+| weight w => WNFA.empty w
+| char a => WNFA.char a
 | P + Q => P.toWNFA + Q.toWNFA
 | P * Q => P.toWNFA * Q.toWNFA
 
 theorem accepts_toWNFA (r : WRegExp α κ) :
     r.toWNFA.accepts = r.matches' := by
   induction r with
-  | weight w => simp [WNFA₃.accepts_empty]
-  | char a => simp [WNFA₃.accepts_char]
-  | plus P Q ihp ihq => simp [WNFA₃.accepts_hadd, ihp, ihq]
-  | comp P Q ihp ihq => simp [WNFA₃.accepts_hmul, ihp, ihq]
+  | weight w => simp [WNFA.accepts_empty]
+  | char a => simp [WNFA.accepts_char]
+  | plus P Q ihp ihq => simp [WNFA.accepts_hadd, ihp, ihq]
+  | comp P Q ihp ihq => simp [WNFA.accepts_hmul, ihp, ihq]
 
 end toWNFA
 
