@@ -13,8 +13,6 @@ public import Mathlib.Computability.WeightedNFA
 
 This file contains the formal definition for *semiring-weighted* regular expressions and basic
 lemmas.
-
-TODO: more explanation
 -/
 
 @[expose] public section
@@ -22,6 +20,10 @@ TODO: more explanation
 open List
 
 universe u k
+
+-- Disable generation of unneeded lemmas which the simpNF linter would complain about.
+set_option genSizeOfSpec false in
+set_option genInjectivity false in
 
 /-- This is the definition of *semiring-weighted* regular expressions. We mirror uniweghted
 `RegularExpression` data type.
@@ -120,6 +122,7 @@ end matches'
 
 section reverse
 
+/-- `P.reverse` is a weighted regular expression matching the reversed language of `P`. -/
 @[simp]
 def reverse : WRegExp α κ → WRegExp α κ
 | weight w => weight w
@@ -148,6 +151,7 @@ end reverse
 
 section toWNFA
 
+/-- `P.states` is the data type of states for `P.toWNFA`. -/
 @[simp]
 def states : WRegExp α κ → Type
 | weight _ => Unit
@@ -171,6 +175,7 @@ theorem states_plus_sum (P Q : WRegExp α κ) : (P + Q).states = (P.states ⊕ Q
 theorem states_comp_sum (P Q : WRegExp α κ) : (P * Q).states = (P.states ⊕ Q.states) :=
   rfl
 
+/-- The data type of states of `r` always supports decidable equality. -/
 def statesDecEq : ∀ (r : WRegExp α κ) (s1 s2 : r.states), Decidable (s1 = s2)
 | weight w =>
   cast (α:=∀ (s1 s2 : Unit), Decidable (s1 = s2)) (by simp) inferInstance
@@ -190,6 +195,7 @@ def statesDecEq : ∀ (r : WRegExp α κ) (s1 s2 : r.states), Decidable (s1 = s2
 
 instance instDeciableEqStates {r : WRegExp α κ} : DecidableEq r.states := r.statesDecEq
 
+/-- `r.statesElems` computes a finite set of elements containing every element of `r.states`. -/
 @[simp]
 def statesElems : ∀ (r : WRegExp α κ), Finset r.states
 | weight w => cast (α:=Finset Unit) (by simp) Finset.univ
@@ -215,6 +221,8 @@ instance instFintypeStates {r : WRegExp α κ} : Fintype r.states where
 
 variable [DecidableEq α] [W : Semiring κ]
 
+/-- `r.toWNFA` computes a WNFA matching the same weighted language as `r`.
+`r.toWNFA` is a weighted Thompson's construction without Kleene Star. -/
 @[simp]
 def toWNFA : ∀ (r : WRegExp α κ), WNFA α r.states κ
 | weight w => WNFA.empty w
