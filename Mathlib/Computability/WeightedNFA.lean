@@ -22,8 +22,6 @@ The weight of a path, a sequence of transitions, is the in-order multiplication 
 constituent transitions.
 
 Note that this construction relies upon [Fintype σ] for its core definitions and lemmas.
-
-TODO
 -/
 
 @[expose] public section
@@ -298,19 +296,16 @@ variable (a : α) [DecidableEq α] [W : Semiring κ]
 
 /-- `M.charStart` is the start states of `M.char`. -/
 @[simp]
-def charStart (s : Bool) : κ :=
-  if s then 0 else 1
+def charStart (s : Bool) : κ := ↑s.not.toNat
 
 /-- `M.charFinal` is the final states of `M.char`. -/
 @[simp]
-def charFinal (s : Bool) : κ :=
-  if s then 1 else 0
+def charFinal (s : Bool) : κ := ↑s.toNat
 
 /-- `M.charStep` is the step function of `M.char`. -/
 @[simp]
-def charStep : Bool → α → Bool → κ
-| false, b, true => if decide (b = a) then 1 else 0
-| _, _, _ => 0
+def charStep (s1 : Bool) (b : α) (s2 : Bool) : κ :=
+  ↑(s1.not && (decide (b = a)) && s2).toNat
 
 /-- `WNFA.char a` accepts a weighted language assigning the string `[a]` weight `1`, and `0` to all
 other strings. -/
@@ -346,13 +341,13 @@ theorem accepts_char : (char (κ:=κ) a).accepts = fun x ↦ if x = [a] then (1 
   | cons b x =>
     cases x with
     | nil =>
-      by_cases h : b = a <;>
-      simp [charStep, stepSet]
-    | cons c x =>
-      by_cases hba : b = a
+      by_cases h : b = a
       · subst b
-        simp [stepSet, acceptsFrom_smul]
-      · simp [stepSet, if_neg hba, acceptsFrom_smul]
+        simp [stepSet]
+      · rw [if_neg <| by simpa]
+        simp [stepSet, decide_eq_false h]
+    | cons c x =>
+      simp [stepSet, acceptsFrom_smul]
 
 end char
 
