@@ -7,16 +7,21 @@ module
 
 public import Mathlib.Computability.NFA
 public import Mathlib.Computability.WeightedDFA
-public import Mathlib.Data.Multiset.Basic
-public import Mathlib.Data.Multiset.Functor
 public import Mathlib.Algebra.Module.BigOperators
-public import Mathlib.Algebra.BigOperators.Ring.Multiset
-public import Mathlib.Data.Finsupp.Basic
-public import Mathlib.Data.Finsupp.Weight
-public import Mathlib.Data.Finsupp.Notation
+public import Mathlib.Algebra.BigOperators.Ring.Finset
 
 /-!
 # Weighted Nondeterministic Finite Automata
+
+A (`ε`-free) Weighted Nondeterministic Finite Automata (WNFA) is a state machine that describes a
+weighted language by assinging an input string a weight. The weight of the string is determined by
+the sum of path weights taken through the state machine.
+
+Every transition in a WNFA produces a weight, which is an element of a semiring.
+The weight of a path, a sequence of transitions, is the in-order multiplication of all of its
+constituent transitions.
+
+Note that this construction relies upon [Fintype σ] for its core definitions and lemmas.
 
 TODO
 -/
@@ -25,7 +30,14 @@ TODO
 
 universe u v k
 
--- Full function version.
+/-- A Weighted NFA (`𝓐`) over a semiring (`𝓦 = (κ, ⊕, ⊗, 0, 1)`)
+is a 5-tuple (`(α, σ, step, start, final)`) where
+* (`α`) is a (finite) alphabet.
+* (`σ`) is a (finite) set of states.
+* (`step : σ → α → σ → κ`) is a (finite) set of transitions.
+* (`start : σ → κ`) is a weighting function assigning states their start values.
+* (`final : σ → κ`) is a weighting function assigning states their final values.
+-/
 structure WNFA (α : Type u) (σ : Type v) (κ : Type k) where
   /-- The NFA's transition function -/
   step : σ → α → σ → κ
@@ -52,8 +64,11 @@ instance : Inhabited (WNFA α σ κ) :=
 
 variable (M : WNFA α σ κ) [Fintype σ]
 
+/-- `M.stepSet S a` sums all transitions in `M` from `S` along character `a`.
+For every `s : σ`, we multiply the weight `S s` with all resulting weights from `M.step s a`, then
+sums all results together. -/
 def stepSet (S : σ → κ) (a : α) : σ → κ :=
-  ∑ s : σ, (S s * ·) ∘ M.step s a
+  ∑ s : σ, S s • M.step s a
 
 @[simp]
 theorem stepSet_add (S1 S2 : σ → κ) (a : α) :
@@ -66,11 +81,13 @@ theorem stepSet_const_zero {a : α} : M.stepSet 0 a = 0 := by
   ext s
   simp [stepSet]
 
-theorem stepSet_compose_mul (w : κ) (S : σ → κ) (a : α) :
-    M.stepSet ((w * ·) ∘ S) a = (w * ·) ∘ M.stepSet S a := by
+theorem stepSet_smul (w : κ) (S : σ → κ) (a : α) :
+    M.stepSet (w • S) a = w • M.stepSet S a := by
   ext s
   simp [stepSet, Finset.mul_sum, W.mul_assoc]
 
+/-- `M.evalFrom S x` is the weightings obtained by traversing `M` with string `x` starting
+from `S`. -/
 def evalFrom (S : σ → κ) : List α → σ → κ :=
   List.foldl M.stepSet S
 
@@ -95,6 +112,7 @@ theorem evalFrom_add (S1 S2 : σ → κ) (x : List α) :
   | nil => simp
   | cons a x ih => simp [ih]
 
+/-- `M.acceptsFrom S` is the weighted language produced by `M` starting from states in `S`. -/
 def acceptsFrom (S : σ → κ) : WeightedLanguage α κ :=
   fun x ↦ ∑ s : σ, M.evalFrom S x s * M.final s
 
@@ -134,18 +152,19 @@ theorem acceptsFrom_sum_Fintype {ι : Type*} [Fintype ι] (f : ι → σ → κ)
     M.acceptsFrom (∑ i : ι, f i) = ∑ i : ι, M.acceptsFrom (f i) := by
   rw [acceptsFrom_sum]
 
-theorem acceptsFrom_compose_mul (w : κ) (S : σ → κ) :
-    M.acceptsFrom ((w * ·) ∘ S) = (w * ·) ∘ M.acceptsFrom S := by
+theorem acceptsFrom_smul (w : κ) (S : σ → κ) :
+    M.acceptsFrom (w • S) = w • M.acceptsFrom S := by
   ext x
   induction x generalizing w S with
   | nil => simp [Finset.mul_sum, W.mul_assoc]
-  | cons a x ih => simp [stepSet_compose_mul, ih]
+  | cons a x ih => simp [stepSet_smul, ih]
 
 @[simp]
 theorem acceptsFrom_compose_cons (S : σ → κ) (a : α) :
     M.acceptsFrom S ∘ (a :: ·) = M.acceptsFrom (M.stepSet S a) :=
   rfl
 
+/-- `M.accepts` is the weighted language of `M`. -/
 def accepts : WeightedLanguage α κ := M.acceptsFrom M.start
 
 end basic
@@ -161,20 +180,19 @@ We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bo
 
 variable {σ : Type} (M : WNFA α σ (WithZero Unit))
 
--- TODO: factor out
 @[simp]
 lemma wzu_add_eq_one (x y : WithZero Unit) :
     x + y = 1 ↔ (x = 1 ∨ y = 1) := by
   rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
   rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
 
--- TODO: factor out
 @[simp]
 lemma wzu_mul_eq_one (x y : WithZero Unit) :
     x * y = 1 ↔ (x = 1 ∧ y = 1) := by
   rcases (WDFA.wzu_zero_or_one x) with rfl | rfl <;>
   rcases (WDFA.wzu_zero_or_one y) with rfl | rfl <;> tauto
 
+/-- `getSt S` is the set of states that map to `1` in `S`. -/
 private def getSet (S : σ → WithZero Unit) : Set σ :=
   { s | S s = 1 }
 
@@ -188,15 +206,19 @@ private theorem getSet_add (S1 S2 : σ → WithZero Unit) :
   ext q
   simp [getSet]
 
+/-- `M.toNFAStart` is the start states of `M.toNFA`. -/
 @[simp]
 def toNFAStart : Set σ := getSet M.start
 
+/-- `M.toNFAAccept` is the accept states of `M.toNFA`. -/
 @[simp]
 def toNFAAccept : Set σ := getSet M.final
 
+/-- `M.toNFAStep` is the step function of `M.toNFA`. -/
 @[simp]
 def toNFAStep (s : σ) (a : α) : Set σ := getSet <| M.step s a
 
+/-- `M.toNFA` is an unweighted NFA constructed from a "boolean"-weighted WNFA `M`. -/
 @[simps]
 def toNFA : NFA α σ where
   step := M.toNFAStep
@@ -238,6 +260,7 @@ section empty
 
 variable (w : κ) [W : Semiring κ]
 
+/-- `WNFA.empty w` is a WNFA accepting the nil-only weighted language with weight `w`. -/
 def empty : WNFA α Unit κ where
   step := fun _ _ _ ↦ 0
   start := Function.const Unit w
@@ -273,19 +296,24 @@ section char
 
 variable (a : α) [DecidableEq α] [W : Semiring κ]
 
+/-- `M.charStart` is the start states of `M.char`. -/
 @[simp]
 def charStart (s : Bool) : κ :=
   if s then 0 else 1
 
+/-- `M.charFinal` is the final states of `M.char`. -/
 @[simp]
 def charFinal (s : Bool) : κ :=
   if s then 1 else 0
 
+/-- `M.charStep` is the step function of `M.char`. -/
 @[simp]
 def charStep : Bool → α → Bool → κ
 | false, b, true => if decide (b = a) then 1 else 0
 | _, _, _ => 0
 
+/-- `WNFA.char a` accepts a weighted language assigning the string `[a]` weight `1`, and `0` to all
+other strings. -/
 def char : WNFA α Bool κ where
   step := charStep a
   start := charStart
@@ -307,7 +335,7 @@ theorem char_final : (char (κ:=κ) a).final = charFinal (κ:=κ) :=
 theorem charStep_zero :
     charStep (κ:=κ) a true = Function.const α (Function.const Bool (0 : κ)) := by
   ext b s
-  simp
+  simp [charStep]
 
 theorem accepts_char : (char (κ:=κ) a).accepts = fun x ↦ if x = [a] then (1 : κ) else (0 : κ) := by
   ext x
@@ -319,13 +347,12 @@ theorem accepts_char : (char (κ:=κ) a).accepts = fun x ↦ if x = [a] then (1 
     cases x with
     | nil =>
       by_cases h : b = a <;>
-      simp [stepSet, show (fun x ↦ x) = id by rfl]
+      simp [charStep, stepSet]
     | cons c x =>
-      by_cases hba : b = a <;>
-      suffices h : (0 : List α → κ) x = (0 : κ) by
-        { simp [stepSet, show (fun x ↦ x) = id by rfl,
-            show (fun x ↦ (0 : κ)) = Function.const κ 0 by rfl] } <;>
-      rfl
+      by_cases hba : b = a
+      · subst b
+        simp [stepSet, acceptsFrom_smul]
+      · simp [stepSet, if_neg hba, acceptsFrom_smul]
 
 end char
 
@@ -333,6 +360,7 @@ section union
 
 variable {σ1 σ2 : Type v} [W : Semiring κ]
 
+/-- `combineSum S1 S2` disjointly adds the weights of `S1` and `S2`. -/
 def combineSum (S1 : σ1 → κ) (S2 : σ2 → κ) : σ1 ⊕ σ2 → κ
 | .inl s1 => S1 s1
 | .inr s2 => S2 s2
@@ -341,17 +369,21 @@ section unionDef
 
 variable (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
 
+/-- `M1.unionStart M2` is the initial weighting of `M1 + M2`. -/
 @[simp]
 def unionStart : σ1 ⊕ σ2 → κ := combineSum M1.start M2.start
 
+/-- `M1.unionFinal M2` is the final weighting of `M1 + M2`. -/
 @[simp]
 def unionFinal : σ1 ⊕ σ2 → κ := combineSum M1.final M2.final
 
+/-- `M1.unionStep M2` is step function of `M1 + M2`. -/
 @[simp]
 def unionStep : σ1 ⊕ σ2 → α → σ1 ⊕ σ2 → κ
 | .inl s1, a => combineSum (M1.step s1 a) (fun _ ↦ 0)
 | .inr s2, a => combineSum (fun _ ↦ 0) (M2.step s2 a)
 
+/-- `M1.union M2`, notated as `M1 + M2` accepts the sum of weighted languages of `M1` and `M2`. -/
 def union : WNFA α (σ1 ⊕ σ2) κ where
   step := unionStep M1 M2
   start := unionStart M1 M2
@@ -402,20 +434,26 @@ section inter
 
 variable {σ1 σ2 : Type v} [W : CommSemiring κ]
 
+/-- `combineProd S1 S2` computes the product of weights of `S1` and `S2`. -/
 def combineProd (S1 : σ1 → κ) (S2 : σ2 → κ) (s : σ1 × σ2) : κ := S1 s.1 * S2 s.2
 
 variable (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
 
+/-- `M1.interStart M2` is the initial weightings for `M1.inter M2`. -/
 @[simp]
 def interStart : σ1 × σ2 → κ := combineProd M1.start M2.start
 
+/-- `M1.interFinal M2` is the final weightings for `M1.inter M2`. -/
 @[simp]
 def interFinal : σ1 × σ2 → κ := combineProd M1.final M2.final
 
+/-- `M1.interStep M2` is the step function for `M1.inter M2`. -/
 @[simp]
 def interStep (s : σ1 × σ2) (a : α) : σ1 × σ2 → κ :=
   combineProd (M1.step s.1 a) (M2.step s.2 a)
 
+/-- `M1.inter M2` is the intersection of `M1` and `M2`, accepting the Hadamard product of their
+weighted languages. -/
 @[simps]
 def inter : WNFA α (σ1 × σ2) κ where
   step := M1.interStep M2
@@ -488,23 +526,30 @@ theorem combineSum_separate {S1 : σ1 → κ} {S2 : σ2 → κ} :
 
 variable (M1 : WNFA α σ1 κ) (M2 : WNFA α σ2 κ)
 
+/-- `M1.concatStart` is the initial weightings of `M1 * M2`. -/
 @[simp]
 def concatStart : σ1 ⊕ σ2 → κ :=
   combineSum M1.start 0
 
 variable [Fintype σ2]
 
+/-- `M1.concatFinal M2` is the final weightings of `M1 * M2`. -/
 @[simp]
 def concatFinal : σ1 ⊕ σ2 → κ :=
   combineSum ((· * M2.accepts []) ∘ M1.final) M2.final
 
+/-- `M1.concatStep M2` is the step function of `M1 * M2`.
+We concatenate `M1` and `M2` by adding transitions from final states in `M1` to states subsequent
+to initial states in `M2`. -/
 @[simp]
 def concatStep : σ1 ⊕ σ2 → α → σ1 ⊕ σ2 → κ
 | .inl s1, a =>
-  combineSum (M1.step s1 a) ((M1.final s1 * ·) ∘ ∑ s2 : σ2, (M2.start s2 * ·) ∘ M2.step s2 a)
+  combineSum (M1.step s1 a) (M1.final s1 • ∑ s2 : σ2, M2.start s2 • M2.step s2 a)
 | .inr s2, a =>
   combineSum 0 (M2.step s2 a)
 
+/-- `M1.concat M2`, notated as `M1 * M2`, accepts the Cauchy product of the weighted languages of
+`M1` and `M2`. -/
 def concat : WNFA α (σ1 ⊕ σ2) κ where
   step := M1.concatStep M2
   start := M1.concatStart
@@ -553,11 +598,11 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
         S1 s1 *
         (M1 * M2).acceptsFrom
           (combineSum (M1.step s1 a)
-            ((M1.final s1 * ·) ∘ ∑ s2 : σ2, (M2.start s2 * ·) ∘ M2.step s2 a)) z =
+            (M1.final s1 • ∑ s2 : σ2, M2.start s2 • M2.step s2 a)) z =
       (∑ s1 : σ1, S1 s1 * M1.final s1) * M2.accepts (a :: z) +
-      (((∑ s1 : σ1, (S1 s1 * ·) ∘ M1.acceptsFrom (M1.step s1 a)) : WeightedLanguage α κ)
+      (((∑ s1 : σ1, S1 s1 • M1.acceptsFrom (M1.step s1 a)) : WeightedLanguage α κ)
        * M2.accepts) z by
-      simpa [stepSet, acceptsFrom_sum, acceptsFrom_compose_mul,
+      simpa [stepSet, acceptsFrom_sum, acceptsFrom_smul,
         Function.comp_def (fun x : κ ↦ (0 : κ)),
         show (↑(Fintype.card σ2) * fun x ↦ 0) = (0 : σ1 ⊕ σ2 → κ) by (ext (s1 | s2) <;> simp)]
     conv_lhs => {
@@ -568,7 +613,7 @@ theorem acceptsFrom_hmul {S1 : σ1 → κ} :
     }
     open scoped Classical in
     simp [W.left_distrib, Finset.sum_add_distrib,
-      acceptsFrom_compose_mul, acceptsFrom_sum, accepts, stepSet, Finset.sum_mul,
+      acceptsFrom_smul, acceptsFrom_sum, accepts, stepSet, Finset.sum_mul,
       Finset.mul_sum, WeightedLanguage.mul_as_sum_over_prod,
       W.add_comm (∑ s : σ1, ∑ y ∈ z.splits.toFinset, _), W.mul_assoc,
       Finset.sum_comm (f:=fun x y ↦ S1 y * _)]
@@ -582,36 +627,32 @@ section reverse
 
 variable {σ : Type v} (M : WNFA α σ κ)
 
+/-- `M.reverseStep` reverses transitions in `M`. -/
 @[simp]
-def revStart : σ → κ := M.final
+def reverseStep (s : σ) (a : α) (s' : σ) : κ := M.step s' a s
+
+/-- `M.reverse` acceptes the reversed weighted language of `M`. -/
+def reverse : WNFA α σ κ where
+  step := M.reverseStep
+  start := M.final
+  final := M.start
 
 @[simp]
-def revFinal : σ → κ := M.start
-
-@[simp]
-def revStep (s : σ) (a : α) (s' : σ) : κ := M.step s' a s
-
-def rev : WNFA α σ κ where
-  step := M.revStep
-  start := M.revStart
-  final := M.revFinal
-
-@[simp]
-theorem rev_step_eq_revStep : M.rev.step = M.revStep :=
+theorem reverse_step_eq_reverseStep : M.reverse.step = M.reverseStep :=
   rfl
 
 @[simp]
-theorem rev_start_eq_revStart : M.rev.start = M.revStart :=
+theorem reverse_start_eq_reverseStart : M.reverse.start = M.final :=
   rfl
 
 @[simp]
-theorem rev_final_eq_revFinal : M.rev.final = M.revFinal :=
+theorem reverse_final_eq_reverseFinal : M.reverse.final = M.start :=
   rfl
 
 variable [W : CommSemiring κ] [Fintype σ]
 
-theorem rev_evalFrom_eq_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
-    ∑ s : σ, M.rev.evalFrom S2 x s * S1 s = ∑ s : σ, M.evalFrom S1 x.reverse s * S2 s := by
+theorem reverse_evalFrom_eq_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
+    ∑ s : σ, M.reverse.evalFrom S2 x s * S1 s = ∑ s : σ, M.evalFrom S1 x.reverse s * S2 s := by
   induction x generalizing S1 S2 with
   | nil => simp [W.mul_comm (S1 _) (S2 _)]
   | cons a x ih =>
@@ -622,9 +663,9 @@ theorem rev_evalFrom_eq_evalFrom_reverse {S1 S2 : σ → κ} {x : List α} :
     rw [Finset.sum_comm]
     ac_nf
 
-theorem accepts_rev : M.rev.accepts = M.accepts.rev := by
+theorem accepts_reverse : M.reverse.accepts = M.accepts.reverse := by
   ext x
-  simp [accepts, acceptsFrom, rev_evalFrom_eq_evalFrom_reverse]
+  simp [accepts, acceptsFrom, reverse_evalFrom_eq_evalFrom_reverse, WeightedLanguage.reverse]
 
 end reverse
 
@@ -634,10 +675,11 @@ namespace WDFA
 
 variable {α : Type u} {κ : Type k} {σ : Type v} [W : Semiring κ] [DecidableEq σ]
 
-@[simp]
+/-- `funOfPair sw` constructs a function mapping `sw.1` to `sw.2` and `0` to all other states. -/
 def funOfPair (sw : σ × κ) (s : σ) : κ :=
   if s = sw.1 then sw.2 else 0
 
+/-- `M.toWNFA` constructs a WNFA from WDFA `M`. -/
 @[simps]
 def toWNFA (M : WDFA α σ κ) : WNFA α σ κ where
   step s a := funOfPair (M.step s a)
@@ -646,21 +688,33 @@ def toWNFA (M : WDFA α σ κ) : WNFA α σ κ where
 
 variable [Fintype σ]
 
+theorem stepSet_toWNFA (M : WDFA α σ κ) (sw : σ × κ) (a : α) :
+    M.toWNFA.stepSet (funOfPair sw) a = sw.2 • funOfPair (M.step sw.1 a) := by
+  obtain ⟨s, w⟩ := sw
+  ext s'
+  simp only [WNFA.stepSet, toWNFA, Finset.sum_apply, Pi.smul_apply]
+  rw [Finset.sum_eq_add_sum_diff_singleton (Finset.mem_univ s)]
+  have hzero : ∑ q ∈ Finset.univ \ {s}, funOfPair (s, w) q • funOfPair (M.step q a) s' = 0 := by
+  { apply Finset.sum_eq_zero
+    intro q hdiff
+    obtain hqs := Finset.notMem_singleton.mp <| (Finset.mem_sdiff.mp hdiff).2
+    simp [funOfPair, if_neg hqs] }
+  rw [hzero]
+  simp [funOfPair]
+
 theorem acceptsFrom_toWNFA (M : WDFA α σ κ) (sw : σ × κ) :
-    M.acceptsFrom sw = M.toWNFA.acceptsFrom (funOfPair sw) := by
+  M.toWNFA.acceptsFrom (funOfPair sw) = M.acceptsFrom sw := by
   ext x
   induction x generalizing sw
-  case nil => simp
+  case nil => simp [funOfPair]
   case cons a x ih =>
     obtain ⟨s, w⟩ := sw
     rcases hstep : M.step s a with ⟨s', w'⟩
-    simp only [acceptsFrom_cons, ih, WNFA.acceptsFrom_cons, WNFA.stepSet]
-    congr 1
-    ext q
-    simp [hstep]
+    simp [acceptsFrom_cons, WNFA.acceptsFrom_cons, stepSet_toWNFA, WNFA.acceptsFrom_smul, hstep,
+      acceptsFrom_prod, ih]
 
 theorem accepts_toWNFA (M : WDFA α σ κ) : M.toWNFA.accepts = M.accepts := by
-  simp only [WDFA.accepts, WNFA.accepts, acceptsFrom_toWNFA]
+  simp only [WDFA.accepts, WNFA.accepts, ←acceptsFrom_toWNFA]
   rfl
 
 end WDFA
