@@ -29,8 +29,6 @@ a `Fintype` instance must be supplied for true DFAs.
 
 Note that since WDFA only use multiplication, we only require a monoid for multiplication, not a
 full semiring.
-
-TODO: explain stuff.
 -/
 
 @[expose] public section
@@ -65,12 +63,12 @@ instance [Inhabited σ] [Inhabited κ] : Inhabited (WDFA α σ κ) :=
   ⟨WDFA.mk (fun _ _ => ⟨default, default⟩) ⟨default, default⟩ (fun _ ↦ 0)⟩
 
 /-- `M.PathInWDFA π` holds when `π` is a valid sequence of transitions in `M`. -/
-def PathInWDFA {s₁ s₃ : σ} : WeightedPath α κ s₁ s₃ → Prop :=
-  WeightedPath.All (fun q₁ a w q₂ ↦ M.step q₁ a = (q₂, w))
+def PathInWDFA {s₁ s₃ : σ} : WPath α κ s₁ s₃ → Prop :=
+  WPath.All (fun q₁ a w q₂ ↦ M.step q₁ a = (q₂, w))
 
 /-- `M.AcceptingPathInWDFA π` holds when `π` is a valid path in `M` from a start state to a final
 state yielding weight `w`. -/
-def AcceptingPathInWDFA {s₁ s₂ : σ} (π : WeightedPath α κ s₁ s₂) (w : κ) : Prop :=
+def AcceptingPathInWDFA {s₁ s₂ : σ} (π : WPath α κ s₁ s₂) (w : κ) : Prop :=
   s₁ = M.start.1 ∧
   M.PathInWDFA π ∧
   w = M.start.2 * π.innerWeight * M.final s₂
@@ -186,20 +184,25 @@ section inter
 
 variable {κ : Type k} {σ1 σ2 : Type v} [W : CommMonoidWithZero κ]
 
+/-- `M1.interStart M2` is the start state of `M1.inter M2`. -/
 @[simp]
 def interStart (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : ((σ1 × σ2) × κ) :=
   ((M1.start.1, M2.start.1), M1.start.2 * M2.start.2)
 
+/-- `M1.interFinal M2` is the final states of `M1.inter M2`. -/
 @[simp]
 def interFinal (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) : κ :=
   M1.final s.1 * M2.final s.2
 
+/-- `M1.interStep M2` is the step function of `M1.inter M2`. -/
 @[simp]
 def interStep (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) (s : σ1 × σ2) (a : α) : (σ1 × σ2) × κ :=
   let sw1 := M1.step s.1 a;
   let sw2 := M2.step s.2 a;
   ((sw1.1, sw2.1), sw1.2 * sw2.2)
 
+/-- `M1.inter M2` is the intersection of `M1` and `M2`, accepting the Hadamard product of the
+languages of `M1` and `M2`. -/
 @[simps]
 def inter (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ where
   start := interStart M1 M2
@@ -209,9 +212,9 @@ def inter (M1 : WDFA α σ1 κ) (M2 : WDFA α σ2 κ) : WDFA α (σ1 × σ2) κ 
 lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
   {s1 : σ1} {s2 : σ2} {w1 w2 : κ} :
     (M1.inter M2).acceptsFrom ((s1, s2), w1 * w2)
-    = (M1.acceptsFrom (s1, w1)).pointwise_prod (M2.acceptsFrom (s2, w2)) := by
+    = (M1.acceptsFrom (s1, w1)).hadamard (M2.acceptsFrom (s2, w2)) := by
   ext x
-  rw [WeightedLanguage.pointwise_prod_apply]
+  rw [WeightedLanguage.hadamard_apply]
   induction x generalizing s1 s2 w1 w2
   case nil =>
     simp only [acceptsFrom_nil, inter_final, interFinal]
@@ -227,7 +230,7 @@ lemma acceptsFrom_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ}
     ac_nf
 
 theorem accepts_inter {M1 : WDFA α σ1 κ} {M2 : WDFA α σ2 κ} :
-    (M1.inter M2).accepts = M1.accepts.pointwise_prod M2.accepts := by
+    (M1.inter M2).accepts = M1.accepts.hadamard M2.accepts := by
   simp [accepts, acceptsFrom_inter]
 
 end inter
@@ -243,14 +246,17 @@ We cannot use `Bool` for the weight type, since the Mathlib instance for `Add Bo
 
 variable {σ : Type v} (M : WDFA α σ (WithZero Unit))
 
+/-- `M.toDFAStart is the start state of `M.toDFA`. -/
 @[simp]
 def toDFAStart : Option σ :=
   if M.start.2 = 1 then .some M.start.1 else .none
 
+/-- `M.toDFAAccept is the accept states of `M.toDFA`. -/
 @[simp]
 def toDFAAccept : Set (Option σ) :=
   { so | ∃ s, M.final s = 1 ∧ so = .some s }
 
+/-- `M.toDFAStep is the step function of `M.toDFA`. -/
 @[simp]
 def toDFAStep : Option σ → α → Option σ
 | .none, _ => .none
@@ -258,6 +264,8 @@ def toDFAStep : Option σ → α → Option σ
   let ⟨s', w⟩ := M.step s a;
   if w = 1 then .some s' else none
 
+/-- `M.toDFA` constructs an unweighted DFA from `M` accepting the "boolean" weighted language as if
+it were unweighted. -/
 @[simps]
 def toDFA : DFA α (Option σ) where
   step := M.toDFAStep
@@ -305,16 +313,20 @@ variable {α : Type u} {κ : Type k} {σ : Type v} (M : DFA α σ) [W : CommMono
 variable [Fintype M.accept] [DecidableEq σ]
 attribute [local instance] Set.decidableMemOfFintype
 
+/-- `M.toWDFAStart` is the start state of `M.toWDFA`. -/
 @[simp]
 def toWDFAStart : σ × κ := (M.start, 1)
 
+/-- `M.toWDFAFinal` is the final states of `M.toWDFA`. -/
 @[simp]
 def toWDFAFinal (s : σ) : κ :=
   if s ∈ M.accept then 1 else 0
 
+/-- `M.toWDFAFinal` is the step function of `M.toWDFA`. -/
 @[simp]
 def toWDFAStep (s : σ) (a : α) : σ × κ := (M.step s a, 1)
 
+/-- `M.toWDFA` constructs a weighted DFA from an unweighted DFA `M`. -/
 @[simps]
 def toWDFA : WDFA α σ κ where
   step := M.toWDFAStep
