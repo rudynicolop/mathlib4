@@ -9,6 +9,7 @@ public import Mathlib.Algebra.Order.Kleene
 public import Mathlib.Algebra.Ring.Hom.Defs
 public import Mathlib.Data.Set.Lattice
 public import Mathlib.Tactic.DeriveFintype
+public import Mathlib.Algebra.Group.TransferInstance
 import Mathlib.Data.Fintype.Sum
 
 /-!
@@ -61,12 +62,26 @@ universe v
 variable {α β γ : Type*}
 
 /-- A language is a set of strings over an alphabet. -/
-def Language (α) :=
-  Set (List α)
+structure Language (α : Type*) where
+  /-- Converts an element of `Set (List α)` to an element of `Language α`. -/
+  toLanguage ::
+  /-- Converts an element of `Language α` to an element of `Set (List α)`. -/
+  ofLanguage : Set (List α)
 
 namespace Language
 
-instance : Membership (List α) (Language α) := ⟨Set.Mem⟩
+/-- `toLanguage` and `ofLanguage` as an equivalence. -/
+@[simps]
+protected def equiv : Language α ≃ Set (List α) where
+  toFun := ofLanguage
+  invFun := toLanguage
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+@[simp]
+lemma equiv_symm_apply : ⇑(Language.equiv).symm = toLanguage (α:=α) := rfl
+
+instance : Membership (List α) (Language α) := Language.equiv.mem
 instance : Singleton (List α) (Language α) := ⟨Set.singleton⟩
 instance : Insert (List α) (Language α) := ⟨Set.insert⟩
 instance instCompleteAtomicBooleanAlgebra : CompleteAtomicBooleanAlgebra (Language α) :=
